@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import Chatbot from './components/Chatbot'
+//import Chatbot from './components/Chatbot'
 
 // CVision System Pages
 import CVisionHome from './pages/CVisionHome'
@@ -35,7 +35,7 @@ function App() {
           <Route path="/evaluation-report" element={<EvaluationReport />} />
         </Routes>
       </main>
-      <Chatbot />
+      {/* <Chatbot /> */}
     </div>
   )
 }

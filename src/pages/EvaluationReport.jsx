@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   Download, 
   ArrowLeft, 
@@ -10,14 +10,31 @@ import {
   MessageSquare,
   Clock,
   BarChart3,
-  RefreshCw
+  RefreshCw,
+  User
 } from 'lucide-react'
 
 const EvaluationReport = () => {
   const [selectedQuestion, setSelectedQuestion] = useState(0)
+  const [interviewData, setInterviewData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  
+  // Get session ID from URL params or localStorage
+  const sessionId = searchParams.get('sessionId') || localStorage.getItem('currentSessionId')
+  const backendUrl = localStorage.getItem('backendUrl') || 'http://localhost:3005'
+  
+  // Update localStorage when sessionId changes from URL
+  useEffect(() => {
+    if (searchParams.get('sessionId')) {
+      localStorage.setItem('currentSessionId', searchParams.get('sessionId'))
+    }
+  }, [searchParams])
 
-  const interviewData = {
+  // Default data structure (fallback)
+  const defaultInterviewData = {
     title: "Senior Software Engineer Interview",
     date: "January 15, 2024",
     duration: "25 minutes",
@@ -83,90 +100,354 @@ const EvaluationReport = () => {
     ]
   }
 
-  const getScoreColor = (score) => {
-    if (score >= 90) return 'text-green-600'
-    if (score >= 80) return 'text-blue-600'
-    if (score >= 70) return 'text-yellow-600'
-    return 'text-red-600'
+  // Fetch evaluation data from backend
+  const fetchEvaluationData = async () => {
+    if (!sessionId) {
+      setError('No session ID found. Please start an interview first or select a recent interview.')
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await fetch(`${backendUrl}/chat/evaluation-data/${sessionId}`)
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Interview session not found. This session may not have evaluation data yet.')
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      setInterviewData(data)
+    } catch (err) {
+      console.error('Failed to fetch evaluation data:', err)
+      setError(err.message)
+      // Don't use default data as fallback - show error instead
+      setInterviewData(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const getScoreBackground = (score) => {
-    if (score >= 90) return 'bg-green-50 border-green-200'
-    if (score >= 80) return 'bg-blue-50 border-blue-200'
-    if (score >= 70) return 'bg-yellow-50 border-yellow-200'
-    return 'bg-red-50 border-red-200'
+  useEffect(() => {
+    fetchEvaluationData()
+  }, [sessionId, backendUrl])
+
+  // Use current data or fallback to default
+  const currentData = interviewData || defaultInterviewData
+  const currentQuestion = currentData?.questions?.[selectedQuestion]
+
+  // Loading state
+  if (loading) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        background: '#f8fafc', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ 
+            width: '50px', 
+            height: '50px', 
+            border: '4px solid #e5e7eb', 
+            borderTop: '4px solid #3b82f6', 
+            borderRadius: '50%', 
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px auto'
+          }}></div>
+          <h2 style={{ color: '#374151', marginBottom: '8px' }}>Loading Evaluation Report...</h2>
+          <p style={{ color: '#6b7280' }}>Please wait while we fetch your interview results</p>
+        </div>
+        <style>
+          {`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}
+        </style>
+      </div>
+    )
   }
 
-  const currentQuestion = interviewData.questions[selectedQuestion]
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
+  // Error state
+  if (error && !interviewData) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        background: '#f8fafc', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+      }}>
+        <div style={{ 
+          textAlign: 'center', 
+          maxWidth: '500px', 
+          padding: '32px',
+          background: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+        }}>
+          <AlertCircle size={48} style={{ color: '#dc2626', margin: '0 auto 16px auto' }} />
+          <h2 style={{ color: '#374151', marginBottom: '8px' }}>Unable to Load Report</h2>
+          <p style={{ color: '#6b7280', marginBottom: '16px' }}>{error}</p>
+          {sessionId && (
+            <div style={{ 
+              background: '#f3f4f6', 
+              padding: '12px', 
+              borderRadius: '8px', 
+              marginBottom: '24px',
+              fontSize: '12px',
+              color: '#6b7280'
+            }}>
+              Session ID: {sessionId}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button
+              onClick={fetchEvaluationData}
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Try Again
+            </button>
             <button
               onClick={() => navigate('/mock-interview')}
-              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+              style={{
+                background: 'white',
+                color: '#374151',
+                border: '2px solid #e5e7eb',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
             >
-              <ArrowLeft size={20} className="mr-2" />
+              Back to Interview
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
+      {/* Header */}
+      <div style={{ 
+        background: 'white', 
+        borderBottom: '1px solid #e5e7eb', 
+        position: 'sticky', 
+        top: 0, 
+        zIndex: 10 
+      }}>
+        <div style={{ 
+          maxWidth: '1200px', 
+          margin: '0 auto', 
+          padding: '24px' 
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between' 
+          }}>
+            <button
+              onClick={() => navigate('/mock-interview')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                color: '#6b7280',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}
+            >
+              <ArrowLeft size={20} style={{ marginRight: '8px' }} />
               Back to Mock Interview
             </button>
             
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-gray-900">{interviewData.title}</h1>
-              <p className="text-gray-600">Interview Report</p>
+            <div style={{ textAlign: 'center' }}>
+              <h1 style={{ 
+                fontSize: '24px', 
+                fontWeight: 'bold', 
+                color: '#111827',
+                margin: 0
+              }}>
+                {currentData.title}
+              </h1>
+              <p style={{ 
+                color: '#6b7280', 
+                margin: '4px 0 0 0',
+                fontSize: '14px'
+              }}>
+                Interview Report
+              </p>
             </div>
             
-            <button className="btn btn-primary">
-              <Download size={16} className="mr-2" />
-              Download Report
+            <button 
+              onClick={async () => {
+                try {
+                  const response = await fetch(`${backendUrl}/chat/final-report/${encodeURIComponent(sessionId)}`)
+                  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+                  const payload = await response.json()
+                  const { data_base64, filename } = payload
+                  const link = document.createElement('a')
+                  link.href = `data:application/pdf;base64,${data_base64}`
+                  link.download = filename || `interview_report_${sessionId}.pdf`
+                  document.body.appendChild(link)
+                  link.click()
+                  link.remove()
+                } catch (error) {
+                  alert(`Failed to download PDF: ${error.message}`)
+                }
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                fontSize: '14px'
+              }}
+            >
+              <Download size={16} style={{ marginRight: '8px' }} />
+              Download PDF
             </button>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
+      <div style={{ 
+        maxWidth: '1200px', 
+        margin: '0 auto', 
+        padding: '32px 24px' 
+      }}>
+        <div style={{ maxWidth: '100%' }}>
           {/* Overview Section */}
-          <div className="grid lg:grid-cols-4 gap-6 mb-8">
-            <div className="lg:col-span-1">
-              <div className="card shadow-lg border-0 p-6 text-center">
-                <div className={`text-4xl font-bold mb-2 ${getScoreColor(interviewData.overallScore)}`}>
-                  {interviewData.overallScore}%
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+            gap: '24px', 
+            marginBottom: '32px' 
+          }}>
+            <div>
+              <div style={{ 
+                background: 'white',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                border: 'none',
+                padding: '24px',
+                textAlign: 'center',
+                borderRadius: '12px'
+              }}>
+                <div style={{ 
+                  fontSize: '36px', 
+                  fontWeight: 'bold', 
+                  marginBottom: '8px',
+                  color: currentData.overallScore >= 90 ? '#059669' :
+                         currentData.overallScore >= 80 ? '#2563eb' :
+                         currentData.overallScore >= 70 ? '#d97706' : '#dc2626'
+                }}>
+                  {currentData.overallScore}%
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-1">Overall Score</h3>
-                <p className="text-sm text-gray-600">
-                  {interviewData.overallScore >= 90 ? 'Excellent Performance' :
-                   interviewData.overallScore >= 80 ? 'Strong Performance' :
-                   interviewData.overallScore >= 70 ? 'Good Performance' : 'Needs Improvement'}
+                <h3 style={{ 
+                  fontWeight: '600', 
+                  color: '#111827', 
+                  marginBottom: '4px',
+                  fontSize: '16px'
+                }}>
+                  Overall Score
+                </h3>
+                <p style={{ 
+                  fontSize: '14px', 
+                  color: '#6b7280',
+                  margin: 0
+                }}>
+                  {currentData.overallScore >= 90 ? 'Excellent Performance' :
+                   currentData.overallScore >= 80 ? 'Strong Performance' :
+                   currentData.overallScore >= 70 ? 'Good Performance' : 'Needs Improvement'}
                 </p>
               </div>
             </div>
 
-            <div className="lg:col-span-3">
-              <div className="card shadow-lg border-0 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Interview Summary</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <Clock size={20} className="text-blue-500 mx-auto mb-2" />
-                    <div className="font-semibold text-gray-900">{interviewData.duration}</div>
-                    <div className="text-sm text-gray-600">Duration</div>
+            <div style={{ gridColumn: 'span 3' }}>
+              <div style={{ 
+                background: 'white',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                border: 'none',
+                padding: '24px',
+                borderRadius: '12px'
+              }}>
+                <h2 style={{ 
+                  fontSize: '20px', 
+                  fontWeight: 'bold', 
+                  color: '#111827', 
+                  marginBottom: '16px' 
+                }}>
+                  Interview Summary
+                </h2>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+                  gap: '16px' 
+                }}>
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '12px', 
+                    background: '#f9fafb', 
+                    borderRadius: '8px' 
+                  }}>
+                    <Clock size={20} style={{ color: '#3b82f6', margin: '0 auto 8px auto' }} />
+                    <div style={{ fontWeight: '600', color: '#111827' }}>{currentData.duration}</div>
+                    <div style={{ fontSize: '14px', color: '#6b7280' }}>Duration</div>
                   </div>
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <MessageSquare size={20} className="text-green-500 mx-auto mb-2" />
-                    <div className="font-semibold text-gray-900">{interviewData.questions.length}</div>
-                    <div className="text-sm text-gray-600">Questions</div>
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '12px', 
+                    background: '#f9fafb', 
+                    borderRadius: '8px' 
+                  }}>
+                    <MessageSquare size={20} style={{ color: '#10b981', margin: '0 auto 8px auto' }} />
+                    <div style={{ fontWeight: '600', color: '#111827' }}>{currentData.questions.length}</div>
+                    <div style={{ fontSize: '14px', color: '#6b7280' }}>Questions</div>
                   </div>
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <TrendingUp size={20} className="text-purple-500 mx-auto mb-2" />
-                    <div className="font-semibold text-gray-900">High</div>
-                    <div className="text-sm text-gray-600">Confidence</div>
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '12px', 
+                    background: '#f9fafb', 
+                    borderRadius: '8px' 
+                  }}>
+                    <TrendingUp size={20} style={{ color: '#8b5cf6', margin: '0 auto 8px auto' }} />
+                    <div style={{ fontWeight: '600', color: '#111827' }}>High</div>
+                    <div style={{ fontSize: '14px', color: '#6b7280' }}>Confidence</div>
                   </div>
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <Award size={20} className="text-orange-500 mx-auto mb-2" />
-                    <div className="font-semibold text-gray-900">B+</div>
-                    <div className="text-sm text-gray-600">Grade</div>
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '12px', 
+                    background: '#f9fafb', 
+                    borderRadius: '8px' 
+                  }}>
+                    <Award size={20} style={{ color: '#f59e0b', margin: '0 auto 8px auto' }} />
+                    <div style={{ fontWeight: '600', color: '#111827' }}>B+</div>
+                    <div style={{ fontSize: '14px', color: '#6b7280' }}>Grade</div>
                   </div>
                 </div>
               </div>
@@ -174,26 +455,73 @@ const EvaluationReport = () => {
           </div>
 
           {/* Question Navigation */}
-          <div className="card shadow-lg border-0 p-6 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Interview Questions</h2>
-            <div className="grid md:grid-cols-3 gap-4">
-              {interviewData.questions.map((q, index) => (
+          <div style={{ 
+            background: 'white',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+            border: 'none',
+            padding: '24px',
+            marginBottom: '32px',
+            borderRadius: '12px'
+          }}>
+            <h2 style={{ 
+              fontSize: '20px', 
+              fontWeight: 'bold', 
+              color: '#111827', 
+              marginBottom: '16px' 
+            }}>
+              Interview Questions
+            </h2>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+              gap: '16px' 
+            }}>
+              {currentData.questions.map((q, index) => (
                 <button
                   key={q.id}
                   onClick={() => setSelectedQuestion(index)}
-                  className={`p-4 rounded-xl border-2 text-left transition-all duration-300 ${
-                    selectedQuestion === index
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
+                  style={{
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: `2px solid ${selectedQuestion === index ? '#3b82f6' : '#e5e7eb'}`,
+                    textAlign: 'left',
+                    background: selectedQuestion === index ? '#eff6ff' : 'white',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease'
+                  }}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-gray-900">Question {index + 1}</span>
-                    <span className={`text-lg font-bold ${getScoreColor(q.aiFeedback.score)}`}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    marginBottom: '8px' 
+                  }}>
+                    <span style={{ 
+                      fontWeight: '600', 
+                      color: '#111827',
+                      fontSize: '14px'
+                    }}>
+                      Question {index + 1}
+                    </span>
+                    <span style={{ 
+                      fontSize: '18px', 
+                      fontWeight: 'bold',
+                      color: q.aiFeedback.score >= 90 ? '#059669' :
+                             q.aiFeedback.score >= 80 ? '#2563eb' :
+                             q.aiFeedback.score >= 70 ? '#d97706' : '#dc2626'
+                    }}>
                       {q.aiFeedback.score}%
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 line-clamp-2">
+                  <p style={{ 
+                    fontSize: '14px', 
+                    color: '#6b7280',
+                    margin: 0,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden'
+                  }}>
                     {q.question}
                   </p>
                 </button>
@@ -202,98 +530,265 @@ const EvaluationReport = () => {
           </div>
 
           {/* Detailed Question Analysis */}
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+            gap: '32px' 
+          }}>
             {/* Question & Answer */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Question */}
-              <div className="card shadow-lg border-0 p-6">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <MessageSquare size={16} className="text-blue-600" />
+            <div style={{ gridColumn: 'span 2' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Question */}
+                <div style={{ 
+                  background: 'white',
+                  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                  border: 'none',
+                  padding: '24px',
+                  borderRadius: '12px'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '12px', 
+                    marginBottom: '16px' 
+                  }}>
+                    <div style={{ 
+                      width: '32px', 
+                      height: '32px', 
+                      background: '#dbeafe', 
+                      borderRadius: '8px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center' 
+                    }}>
+                      <MessageSquare size={16} style={{ color: '#2563eb' }} />
+                    </div>
+                    <h3 style={{ 
+                      fontSize: '18px', 
+                      fontWeight: 'bold', 
+                      color: '#111827' 
+                    }}>
+                      Question {selectedQuestion + 1}
+                    </h3>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    Question {selectedQuestion + 1}
-                  </h3>
-                </div>
-                <p className="text-gray-800 text-lg leading-relaxed font-medium">
-                  {currentQuestion.question}
-                </p>
-              </div>
-
-              {/* Your Answer */}
-              <div className="card shadow-lg border-0 p-6">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <User size={16} className="text-gray-600" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900">Your Answer</h3>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                  <p className="text-gray-800 leading-relaxed">
-                    {currentQuestion.userAnswer}
+                  <p style={{ 
+                    color: '#1f2937', 
+                    fontSize: '18px', 
+                    lineHeight: '1.6', 
+                    fontWeight: '500',
+                    margin: 0
+                  }}>
+                    {currentQuestion.question}
                   </p>
                 </div>
-              </div>
 
-              {/* AI Feedback */}
-              <div className={`card shadow-lg border-2 p-6 ${getScoreBackground(currentQuestion.aiFeedback.score)}`}>
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      currentQuestion.aiFeedback.score >= 80 ? 'bg-green-500' : 'bg-blue-500'
-                    }`}>
-                      <BarChart3 size={20} className="text-white" />
+                {/* Your Answer */}
+                <div style={{ 
+                  background: 'white',
+                  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                  border: 'none',
+                  padding: '24px',
+                  borderRadius: '12px'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '12px', 
+                    marginBottom: '16px' 
+                  }}>
+                    <div style={{ 
+                      width: '32px', 
+                      height: '32px', 
+                      background: '#f3f4f6', 
+                      borderRadius: '8px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center' 
+                    }}>
+                      <User size={16} style={{ color: '#6b7280' }} />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900">AI Feedback</h3>
+                    <h3 style={{ 
+                      fontSize: '18px', 
+                      fontWeight: 'bold', 
+                      color: '#111827' 
+                    }}>
+                      Your Answer
+                    </h3>
                   </div>
-                  <div className={`text-3xl font-bold ${getScoreColor(currentQuestion.aiFeedback.score)}`}>
-                    {currentQuestion.aiFeedback.score}%
+                  <div style={{ 
+                    padding: '16px', 
+                    background: '#f9fafb', 
+                    borderRadius: '12px', 
+                    border: '1px solid #e5e7eb' 
+                  }}>
+                    <p style={{ 
+                      color: '#1f2937', 
+                      lineHeight: '1.6',
+                      margin: 0
+                    }}>
+                      {currentQuestion.userAnswer}
+                    </p>
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  {/* Suggestion */}
-                  <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
-                    <h4 className="font-bold text-gray-900 mb-2 flex items-center">
-                      <CheckCircle size={18} className="text-blue-500 mr-2" />
-                      Overall Assessment
-                    </h4>
-                    <p className="text-gray-700 leading-relaxed">
-                      {currentQuestion.aiFeedback.suggestion}
-                    </p>
+                {/* AI Feedback */}
+                <div style={{ 
+                  background: 'white',
+                  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                  border: `2px solid ${currentQuestion.aiFeedback.score >= 90 ? '#d1fae5' :
+                                         currentQuestion.aiFeedback.score >= 80 ? '#dbeafe' :
+                                         currentQuestion.aiFeedback.score >= 70 ? '#fef3c7' : '#fecaca'}`,
+                  padding: '24px',
+                  borderRadius: '12px'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    marginBottom: '24px' 
+                  }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '12px' 
+                    }}>
+                      <div style={{ 
+                        width: '40px', 
+                        height: '40px', 
+                        borderRadius: '8px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        background: currentQuestion.aiFeedback.score >= 80 ? '#10b981' : '#3b82f6'
+                      }}>
+                        <BarChart3 size={20} style={{ color: 'white' }} />
+                      </div>
+                      <h3 style={{ 
+                        fontSize: '20px', 
+                        fontWeight: 'bold', 
+                        color: '#111827' 
+                      }}>
+                        AI Feedback
+                      </h3>
+                    </div>
+                    <div style={{ 
+                      fontSize: '30px', 
+                      fontWeight: 'bold',
+                      color: currentQuestion.aiFeedback.score >= 90 ? '#059669' :
+                             currentQuestion.aiFeedback.score >= 80 ? '#2563eb' :
+                             currentQuestion.aiFeedback.score >= 70 ? '#d97706' : '#dc2626'
+                    }}>
+                      {currentQuestion.aiFeedback.score}%
+                    </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Strengths */}
-                    <div>
-                      <h4 className="font-bold text-green-800 mb-3 flex items-center">
-                        <CheckCircle size={18} className="text-green-600 mr-2" />
-                        What You Did Well
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {/* Suggestion */}
+                    <div style={{ 
+                      padding: '16px', 
+                      background: 'white', 
+                      borderRadius: '12px', 
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', 
+                      border: '1px solid #e5e7eb' 
+                    }}>
+                      <h4 style={{ 
+                        fontWeight: 'bold', 
+                        color: '#111827', 
+                        marginBottom: '8px', 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        fontSize: '16px'
+                      }}>
+                        <CheckCircle size={18} style={{ color: '#3b82f6', marginRight: '8px' }} />
+                        Overall Assessment
                       </h4>
-                      <ul className="space-y-2">
-                        {currentQuestion.aiFeedback.strengths.map((strength, index) => (
-                          <li key={index} className="flex items-start">
-                            <div className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                            <span className="text-gray-700 text-sm">{strength}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      <p style={{ 
+                        color: '#374151', 
+                        lineHeight: '1.6',
+                        margin: 0
+                      }}>
+                        {currentQuestion.aiFeedback.suggestion}
+                      </p>
                     </div>
 
-                    {/* Improvements */}
-                    <div>
-                      <h4 className="font-bold text-orange-800 mb-3 flex items-center">
-                        <AlertCircle size={18} className="text-orange-600 mr-2" />
-                        Areas to Improve
-                      </h4>
-                      <ul className="space-y-2">
-                        {currentQuestion.aiFeedback.improvements.map((improvement, index) => (
-                          <li key={index} className="flex items-start">
-                            <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                            <span className="text-gray-700 text-sm">{improvement}</span>
-                          </li>
-                        ))}
-                      </ul>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+                      gap: '24px' 
+                    }}>
+                      {/* Strengths */}
+                      <div>
+                        <h4 style={{ 
+                          fontWeight: 'bold', 
+                          color: '#065f46', 
+                          marginBottom: '12px', 
+                          display: 'flex', 
+                          alignItems: 'center',
+                          fontSize: '16px'
+                        }}>
+                          <CheckCircle size={18} style={{ color: '#059669', marginRight: '8px' }} />
+                          What You Did Well
+                        </h4>
+                        <ul style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {currentQuestion.aiFeedback.strengths.map((strength, index) => (
+                            <li key={index} style={{ display: 'flex', alignItems: 'flex-start' }}>
+                              <div style={{ 
+                                width: '8px', 
+                                height: '8px', 
+                                background: '#10b981', 
+                                borderRadius: '50%', 
+                                marginTop: '8px', 
+                                marginRight: '12px', 
+                                flexShrink: 0 
+                              }}></div>
+                              <span style={{ 
+                                color: '#374151', 
+                                fontSize: '14px',
+                                lineHeight: '1.5'
+                              }}>
+                                {strength}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Improvements */}
+                      <div>
+                        <h4 style={{ 
+                          fontWeight: 'bold', 
+                          color: '#92400e', 
+                          marginBottom: '12px', 
+                          display: 'flex', 
+                          alignItems: 'center',
+                          fontSize: '16px'
+                        }}>
+                          <AlertCircle size={18} style={{ color: '#d97706', marginRight: '8px' }} />
+                          Areas to Improve
+                        </h4>
+                        <ul style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {currentQuestion.aiFeedback.improvements.map((improvement, index) => (
+                            <li key={index} style={{ display: 'flex', alignItems: 'flex-start' }}>
+                              <div style={{ 
+                                width: '8px', 
+                                height: '8px', 
+                                background: '#f59e0b', 
+                                borderRadius: '50%', 
+                                marginTop: '8px', 
+                                marginRight: '12px', 
+                                flexShrink: 0 
+                              }}></div>
+                              <span style={{ 
+                                color: '#374151', 
+                                fontSize: '14px',
+                                lineHeight: '1.5'
+                              }}>
+                                {improvement}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -301,28 +796,71 @@ const EvaluationReport = () => {
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-6">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {/* Question List */}
-              <div className="card shadow-lg border-0 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">All Questions</h3>
-                <div className="space-y-3">
-                  {interviewData.questions.map((q, index) => (
+              <div style={{ 
+                background: 'white',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                border: 'none',
+                padding: '24px',
+                borderRadius: '12px'
+              }}>
+                <h3 style={{ 
+                  fontSize: '18px', 
+                  fontWeight: 'bold', 
+                  color: '#111827', 
+                  marginBottom: '16px' 
+                }}>
+                  All Questions
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {currentData.questions.map((q, index) => (
                     <button
                       key={q.id}
                       onClick={() => setSelectedQuestion(index)}
-                      className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
-                        selectedQuestion === index
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: `2px solid ${selectedQuestion === index ? '#3b82f6' : '#e5e7eb'}`,
+                        textAlign: 'left',
+                        background: selectedQuestion === index ? '#eff6ff' : 'white',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease'
+                      }}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold text-gray-900">Q{index + 1}</span>
-                        <span className={`text-sm font-bold ${getScoreColor(q.aiFeedback.score)}`}>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        marginBottom: '4px' 
+                      }}>
+                        <span style={{ 
+                          fontWeight: '600', 
+                          color: '#111827',
+                          fontSize: '14px'
+                        }}>
+                          Q{index + 1}
+                        </span>
+                        <span style={{ 
+                          fontSize: '14px', 
+                          fontWeight: 'bold',
+                          color: q.aiFeedback.score >= 90 ? '#059669' :
+                                 q.aiFeedback.score >= 80 ? '#2563eb' :
+                                 q.aiFeedback.score >= 70 ? '#d97706' : '#dc2626'
+                        }}>
                           {q.aiFeedback.score}%
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 line-clamp-2">
+                      <p style={{ 
+                        fontSize: '14px', 
+                        color: '#6b7280',
+                        margin: 0,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}>
                         {q.question}
                       </p>
                     </button>
@@ -331,63 +869,112 @@ const EvaluationReport = () => {
               </div>
 
               {/* Overall Performance */}
-              <div className="card shadow-lg border-0 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Performance Breakdown</h3>
+              <div style={{ 
+                background: 'white',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                border: 'none',
+                padding: '24px',
+                borderRadius: '12px'
+              }}>
+                <h3 style={{ 
+                  fontSize: '18px', 
+                  fontWeight: 'bold', 
+                  color: '#111827', 
+                  marginBottom: '16px' 
+                }}>
+                  Performance Breakdown
+                </h3>
                 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Communication</span>
-                    <span className="font-semibold text-green-600">Excellent</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#6b7280', fontSize: '14px' }}>Communication</span>
+                    <span style={{ fontWeight: '600', color: '#059669', fontSize: '14px' }}>Excellent</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-green-500 h-2 rounded-full w-5/6"></div>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Technical Knowledge</span>
-                    <span className="font-semibold text-blue-600">Very Good</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-blue-500 h-2 rounded-full w-4/5"></div>
+                  <div style={{ width: '100%', background: '#e5e7eb', borderRadius: '9999px', height: '8px' }}>
+                    <div style={{ background: '#10b981', height: '8px', borderRadius: '9999px', width: '83%' }}></div>
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Problem Solving</span>
-                    <span className="font-semibold text-green-600">Excellent</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#6b7280', fontSize: '14px' }}>Technical Knowledge</span>
+                    <span style={{ fontWeight: '600', color: '#2563eb', fontSize: '14px' }}>Very Good</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-green-500 h-2 rounded-full w-11/12"></div>
+                  <div style={{ width: '100%', background: '#e5e7eb', borderRadius: '9999px', height: '8px' }}>
+                    <div style={{ background: '#3b82f6', height: '8px', borderRadius: '9999px', width: '80%' }}></div>
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Leadership</span>
-                    <span className="font-semibold text-yellow-600">Good</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#6b7280', fontSize: '14px' }}>Problem Solving</span>
+                    <span style={{ fontWeight: '600', color: '#059669', fontSize: '14px' }}>Excellent</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-yellow-500 h-2 rounded-full w-3/4"></div>
+                  <div style={{ width: '100%', background: '#e5e7eb', borderRadius: '9999px', height: '8px' }}>
+                    <div style={{ background: '#10b981', height: '8px', borderRadius: '9999px', width: '92%' }}></div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#6b7280', fontSize: '14px' }}>Leadership</span>
+                    <span style={{ fontWeight: '600', color: '#d97706', fontSize: '14px' }}>Good</span>
+                  </div>
+                  <div style={{ width: '100%', background: '#e5e7eb', borderRadius: '9999px', height: '8px' }}>
+                    <div style={{ background: '#f59e0b', height: '8px', borderRadius: '9999px', width: '75%' }}></div>
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="space-y-3">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <button 
                   onClick={() => navigate('/mock-interview')}
-                  className="w-full btn btn-primary"
+                  style={{
+                    width: '100%',
+                    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '14px'
+                  }}
                 >
-                  <RefreshCw size={16} className="mr-2" />
+                  <RefreshCw size={16} style={{ marginRight: '8px' }} />
                   Practice Again
                 </button>
                 
                 <button 
                   onClick={() => navigate('/improve-resume/step1')}
-                  className="w-full btn btn-outline"
+                  style={{
+                    width: '100%',
+                    background: 'white',
+                    color: '#374151',
+                    border: '2px solid #e5e7eb',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
                 >
                   Improve Resume
                 </button>
                 
-                <button className="w-full btn btn-outline">
-                  <Download size={16} className="mr-2" />
+                <button style={{
+                  width: '100%',
+                  background: 'white',
+                  color: '#374151',
+                  border: '2px solid #e5e7eb',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '14px'
+                }}>
+                  <Download size={16} style={{ marginRight: '8px' }} />
                   Save PDF Report
                 </button>
               </div>
@@ -395,53 +982,111 @@ const EvaluationReport = () => {
           </div>
 
           {/* Key Insights */}
-          <div className="card shadow-lg border-0 p-8 mt-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+          <div style={{ 
+            background: 'white',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+            border: 'none',
+            padding: '32px',
+            marginTop: '32px',
+            borderRadius: '12px'
+          }}>
+            <h2 style={{ 
+              fontSize: '24px', 
+              fontWeight: 'bold', 
+              color: '#111827', 
+              marginBottom: '24px', 
+              textAlign: 'center' 
+            }}>
               🎯 Key Insights & Next Steps
             </h2>
             
-            <div className="grid md:grid-cols-2 gap-8">
-              <div className="p-6 bg-green-50 rounded-xl border border-green-200">
-                <h3 className="font-bold text-green-800 mb-4 text-xl">🌟 Your Strengths</h3>
-                <ul className="space-y-2">
-                  <li className="flex items-center text-green-700">
-                    <CheckCircle size={16} className="mr-2" />
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+              gap: '32px' 
+            }}>
+              <div style={{ 
+                padding: '24px', 
+                background: '#f0fdf4', 
+                borderRadius: '12px', 
+                border: '1px solid #bbf7d0' 
+              }}>
+                <h3 style={{ 
+                  fontWeight: 'bold', 
+                  color: '#166534', 
+                  marginBottom: '16px', 
+                  fontSize: '20px' 
+                }}>
+                  🌟 Your Strengths
+                </h3>
+                <ul style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <li style={{ display: 'flex', alignItems: 'center', color: '#15803d' }}>
+                    <CheckCircle size={16} style={{ marginRight: '8px' }} />
                     Strong technical communication
                   </li>
-                  <li className="flex items-center text-green-700">
-                    <CheckCircle size={16} className="mr-2" />
+                  <li style={{ display: 'flex', alignItems: 'center', color: '#15803d' }}>
+                    <CheckCircle size={16} style={{ marginRight: '8px' }} />
                     Excellent problem-solving approach
                   </li>
-                  <li className="flex items-center text-green-700">
-                    <CheckCircle size={16} className="mr-2" />
+                  <li style={{ display: 'flex', alignItems: 'center', color: '#15803d' }}>
+                    <CheckCircle size={16} style={{ marginRight: '8px' }} />
                     Good use of specific examples and metrics
                   </li>
                 </ul>
               </div>
 
-              <div className="p-6 bg-blue-50 rounded-xl border border-blue-200">
-                <h3 className="font-bold text-blue-800 mb-4 text-xl">🚀 Growth Areas</h3>
-                <ul className="space-y-2">
-                  <li className="flex items-center text-blue-700">
-                    <TrendingUp size={16} className="mr-2" />
+              <div style={{ 
+                padding: '24px', 
+                background: '#eff6ff', 
+                borderRadius: '12px', 
+                border: '1px solid #bfdbfe' 
+              }}>
+                <h3 style={{ 
+                  fontWeight: 'bold', 
+                  color: '#1e40af', 
+                  marginBottom: '16px', 
+                  fontSize: '20px' 
+                }}>
+                  🚀 Growth Areas
+                </h3>
+                <ul style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <li style={{ display: 'flex', alignItems: 'center', color: '#1d4ed8' }}>
+                    <TrendingUp size={16} style={{ marginRight: '8px' }} />
                     Elaborate more on team collaboration
                   </li>
-                  <li className="flex items-center text-blue-700">
-                    <TrendingUp size={16} className="mr-2" />
+                  <li style={{ display: 'flex', alignItems: 'center', color: '#1d4ed8' }}>
+                    <TrendingUp size={16} style={{ marginRight: '8px' }} />
                     Connect experiences to company values
                   </li>
-                  <li className="flex items-center text-blue-700">
-                    <TrendingUp size={16} className="mr-2" />
+                  <li style={{ display: 'flex', alignItems: 'center', color: '#1d4ed8' }}>
+                    <TrendingUp size={16} style={{ marginRight: '8px' }} />
                     Add more leadership examples
                   </li>
                 </ul>
               </div>
             </div>
 
-            <div className="text-center mt-8 p-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl text-white">
-              <h3 className="text-xl font-bold mb-3">🎉 Great Job!</h3>
-              <p className="text-blue-100 leading-relaxed">
-                You scored {interviewData.overallScore}% overall. With a few improvements in leadership storytelling 
+            <div style={{ 
+              textAlign: 'center', 
+              marginTop: '32px', 
+              padding: '24px', 
+              background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', 
+              borderRadius: '16px', 
+              color: 'white' 
+            }}>
+              <h3 style={{ 
+                fontSize: '20px', 
+                fontWeight: 'bold', 
+                marginBottom: '12px' 
+              }}>
+                🎉 Great Job!
+              </h3>
+              <p style={{ 
+                color: '#dbeafe', 
+                lineHeight: '1.6',
+                margin: 0
+              }}>
+                You scored {currentData.overallScore}% overall. With a few improvements in leadership storytelling 
                 and company-specific examples, you'll be ready to ace any interview!
               </p>
             </div>
