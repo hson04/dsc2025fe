@@ -21,10 +21,13 @@ const API_CONFIG = {
 
   // Resume Enhancement Endpoints (nếu có trong dsc2025API)
   RESUME: {
-    EVALUATE_CV: '/resume/evaluate-cv/',
-    ENHANCE_RESUME: '/resume/enhance/',
-    CALCULATE_ALIGNMENT: '/resume/calculate-alignment/',
-    GENERATE_REPORT: '/resume/generate-report/'
+    EVALUATE_CV: '/resume-flow/evaluate-cv/',
+    ADD_DATA_AND_CREATE_RESUME: '/resume-flow/add-data-and-create-resume/',
+    DOWNLOAD_PDF: '/resume-flow/download-pdf',
+    CALCULATE_ALIGNMENT_SCORE: '/resume-flow/calculate-alignment-score/',
+    CALCULATE_CONTENT_PRESERVATION: '/resume-flow/calculate-content-preservation/',
+    ANALYZE_RESUME_IMPROVEMENTS: '/resume-flow/analyze-resume-improvements/',
+    GENERATE_REPORT_PDF: '/resume-flow/generate-report-pdf/'
   },
 
   // Backward compatibility cho các component cũ

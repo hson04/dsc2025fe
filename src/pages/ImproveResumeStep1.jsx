@@ -214,7 +214,7 @@ const ImproveResumeStep1 = () => {
       }, 800); // Update every 800ms
 
       const response = await axios.post(
-        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.EVALUATE_CV}`,
+        `${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.EVALUATE_CV}`,
         formData
       );
 

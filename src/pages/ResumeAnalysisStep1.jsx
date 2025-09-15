@@ -184,7 +184,7 @@ const ResumeAnalysisStep1 = () => {
           });
         }, 1000); // Longer interval (was 200ms, now 1000ms)
 
-        const response = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.EVALUATE_CV}`, formData, {
+        const response = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.EVALUATE_CV}`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
@@ -214,7 +214,7 @@ const ResumeAnalysisStep1 = () => {
             });
           }, 500); // Longer interval (was 150ms, now 500ms)
 
-          const reportResponse = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GENERATE_REPORT_PDF}`, {
+          const reportResponse = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.GENERATE_REPORT_PDF}`, {
             alignment_scores: response.data.alignment_scores,
             cv_comment: response.data.cv_comment,
             resume_data: response.data.resume_data,
