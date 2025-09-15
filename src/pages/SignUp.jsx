@@ -57,7 +57,7 @@ const SignUp = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     const formErrors = validateForm()
     if (Object.keys(formErrors).length > 0) {
       setErrors(formErrors)
@@ -68,11 +68,25 @@ const SignUp = () => {
     setErrors({})
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      console.log('Sign up data:', formData)
-      navigate('/verify-account')
+      const response = await fetch("http://localhost:3005/db/register/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.detail || "Registration failed")
+      }
+
+      console.log("User registered successfully")
+      navigate("/signin")
     } catch (error) {
-      setErrors({ general: 'Sign up failed. Please try again.' })
+      setErrors({ general: error.message })
     } finally {
       setIsLoading(false)
     }
