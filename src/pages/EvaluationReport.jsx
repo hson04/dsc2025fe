@@ -13,6 +13,8 @@ import {
   RefreshCw,
   User
 } from 'lucide-react'
+import API_CONFIG from '../config/api'
+import { createCustomAPI } from '../utils/api'
 
 const EvaluationReport = () => {
   const [selectedQuestion, setSelectedQuestion] = useState(0)
@@ -24,7 +26,7 @@ const EvaluationReport = () => {
   
   // Get session ID from URL params or localStorage
   const sessionId = searchParams.get('sessionId') || localStorage.getItem('currentSessionId')
-  const backendUrl = localStorage.getItem('backendUrl') || 'http://localhost:3005'
+  const backendUrl = localStorage.getItem('backendUrl') || API_CONFIG.BASE_URL
   
   // Update localStorage when sessionId changes from URL
   useEffect(() => {
@@ -112,7 +114,8 @@ const EvaluationReport = () => {
       setLoading(true)
       setError(null)
       
-      const response = await fetch(`${backendUrl}/chat/evaluation-data/${sessionId}`)
+      const api = createCustomAPI(backendUrl)
+      const response = await api.getEvaluationData(sessionId)
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -302,7 +305,8 @@ const EvaluationReport = () => {
             <button 
               onClick={async () => {
                 try {
-                  const response = await fetch(`${backendUrl}/chat/final-report/${encodeURIComponent(sessionId)}`)
+                  const api = createCustomAPI(backendUrl)
+                  const response = await api.getFinalReport(sessionId)
                   if (!response.ok) throw new Error(`HTTP ${response.status}`)
                   const payload = await response.json()
                   const { data_base64, filename } = payload

@@ -13,11 +13,13 @@ import {
   Menu,
   X
 } from 'lucide-react'
+import API_CONFIG from '../config/api'
+import { createCustomAPI } from '../utils/api'
 
 const MockInterview = () => {
   // Backend configuration
   const [backendUrl, setBackendUrl] = useState(() => {
-    return localStorage.getItem('backendUrl') || 'http://localhost:3005'
+    return localStorage.getItem('backendUrl') || API_CONFIG.BASE_URL
   })
   const [roomId, setRoomId] = useState(() => {
     // Try to get existing session from localStorage
@@ -124,7 +126,8 @@ const MockInterview = () => {
   const fetchRecentInterviews = async () => {
     try {
       setLoadingInterviews(true)
-      const response = await fetch(`${backendUrl}/chat/interview-sessions`)
+      const api = createCustomAPI(backendUrl)
+      const response = await api.getInterviewSessions()
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
@@ -148,15 +151,10 @@ const MockInterview = () => {
   // API functions for chatbot_mi backend
   const sendMessageToBackend = async (messageText) => {
     try {
-      const response = await fetch(`${backendUrl}/chat/chatDomain`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          room_id: roomId,
-          query: messageText
-        })
+      const api = createCustomAPI(backendUrl)
+      const response = await api.chatDomain({
+        room_id: roomId,
+        query: messageText
       })
 
       if (!response.ok) {
@@ -335,10 +333,8 @@ const MockInterview = () => {
       form.append('file', blob, 'answer.webm')
       form.append('language', language)
       
-      const transcribeRes = await fetch(`${backendUrl}/chat/transcribe`, { 
-        method: 'POST', 
-        body: form 
-      })
+      const api = createCustomAPI(backendUrl)
+      const transcribeRes = await api.transcribe(form)
       
       if (!transcribeRes.ok) {
         throw new Error(`Transcription failed: HTTP ${transcribeRes.status}`)
