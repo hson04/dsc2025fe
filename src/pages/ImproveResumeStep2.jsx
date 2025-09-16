@@ -343,14 +343,14 @@ const ImproveResumeStep2 = () => {
           });
         }, 800);
 
-        console.log('Making API call to:', `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ADD_DATA_AND_CREATE_RESUME}`);
+        console.log('Making API call to:', `${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.ADD_DATA_AND_CREATE_RESUME}`);
         console.log('Request payload:', {
             resume_data: analysisData.resume_data,
             missing_information: updatedMissingInfo,
             job_data: analysisData.job_data
         });
 
-        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ADD_DATA_AND_CREATE_RESUME}`, {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.ADD_DATA_AND_CREATE_RESUME}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

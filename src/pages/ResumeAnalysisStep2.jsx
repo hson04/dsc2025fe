@@ -372,7 +372,7 @@ const ResumeAnalysisStep2 = () => {
       if (!reportUrl && analysisResults) {
         console.log('Regenerating report from analysis results...');
         
-        const reportResponse = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GENERATE_REPORT_PDF}`, {
+        const reportResponse = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.GENERATE_REPORT_PDF}`, {
           alignment_scores: analysisResults.alignment_scores,
           cv_comment: analysisResults.cv_comment,
           resume_data: analysisResults.resume_data,

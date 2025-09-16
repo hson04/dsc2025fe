@@ -609,7 +609,7 @@ const ImproveResumeStep3 = () => {
       evaluateFormData.append('job_data', parsedAnalysisResults.job_data ? JSON.stringify(parsedAnalysisResults.job_data) : '{}')
       evaluateFormData.append('job_data_v2', parsedAnalysisResults.job_data_v2 ? JSON.stringify(parsedAnalysisResults.job_data_v2) : '{}')
       
-      const evaluateResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CALCULATE_ALIGNMENT_SCORE}`, {
+      const evaluateResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.CALCULATE_ALIGNMENT_SCORE}`, {
         method: 'POST',
         body: evaluateFormData
       })
@@ -871,7 +871,7 @@ const ImproveResumeStep3 = () => {
         // ✅ Execute both API calls in parallel
         const [contentPreservationResponse, resumeImprovementsResponse] = await Promise.allSettled([
           // Content Preservation API call
-          fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CALCULATE_CONTENT_PRESERVATION}`, {
+          fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.CALCULATE_CONTENT_PRESERVATION}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -883,7 +883,7 @@ const ImproveResumeStep3 = () => {
           }),
           
           // Resume Improvements API call
-          fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ANALYZE_RESUME_IMPROVEMENTS}`, {
+          fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.ANALYZE_RESUME_IMPROVEMENTS}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

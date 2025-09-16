@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
+import API_CONFIG from '../config/api'
 
 const SignIn = () => {
   const [formData, setFormData] = useState({
@@ -45,7 +46,7 @@ const SignIn = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     const formErrors = validateForm()
     if (Object.keys(formErrors).length > 0) {
       setErrors(formErrors)
@@ -56,11 +57,30 @@ const SignIn = () => {
     setErrors({})
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      console.log('Sign in data:', formData)
-      navigate('/dashboard')
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.LOGIN}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.detail || "Login failed")
+      }
+
+      const data = await response.json()
+      console.log("Login successful:", data)
+
+      // Lưu token vào localStorage
+      localStorage.setItem("access_token", data.access_token)
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      navigate("/dashboard")
     } catch (error) {
-      setErrors({ general: 'Invalid email or password. Please try again.' })
+      setErrors({ general: error.message })
     } finally {
       setIsLoading(false)
     }
