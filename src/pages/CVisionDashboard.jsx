@@ -16,6 +16,7 @@ import {
   Edit,
   File
 } from 'lucide-react'
+import API_CONFIG from '../config/api'
 
 const CVisionDashboard = () => {
   const navigate = useNavigate()
@@ -48,7 +49,7 @@ const CVisionDashboard = () => {
       const token = localStorage.getItem("access_token")
 
       try {
-        const response = await fetch("http://localhost:3005/db/dashboard/", {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.DASHBOARD}`, {
           method: "GET",
           headers: {
             
@@ -192,8 +193,8 @@ const CVisionDashboard = () => {
     formData.append('user_id', user.id);
 
     try {
-      const endpoint = fileType === 'resume' ? 'upload-resume' : 'upload-jd';
-      const response = await fetch(`http://localhost:3005/db/${endpoint}/`, {
+      const endpoint = fileType === 'resume' ? `${API_CONFIG.USERDB.UPLOADRESUME}` : `${API_CONFIG.USERDB.UPLOADJD}`;
+      const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -222,8 +223,8 @@ const CVisionDashboard = () => {
     console.log(`Downloading from endpoint: for user ID: ${user.id}`);
 
     try {
-        const endpoint = fileType === 'resume' ? 'download-resume' : 'download-jd';
-        const response = await fetch(`http://localhost:3005/db/${endpoint}/${user.id}`, {
+        const endpoint = fileType === 'resume' ? `${API_CONFIG.USERDB.DOWNLOADRESUME}` : `${API_CONFIG.USERDB.DOWNLOADJD}`;
+        const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}/${user.id}`, {
             method: 'GET',
             headers: {
                 Authorization: `Bearer ${token}`,

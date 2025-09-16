@@ -40,6 +40,15 @@ const API_CONFIG = {
     ANALYZE_RESUME_IMPROVEMENTS: '/chat/extract-cv/', // Placeholder
     GENERATE_REPORT_PDF: '/chat/final-report/',
     DOWNLOAD_PDF: '/chat/final-report/'
+  },
+  USERDB:{
+    LOGIN: '/db/login',
+    REGISTER: '/db/register',
+    DASHBOARD: '/db/dashboard',
+    UPLOADRESUME: '/db/upload-resume',
+    UPLOADJD: '/db/upload-jd',
+    DOWNLOADRESUME: '/db/download-resume',
+    DOWNLOADJD: '/db/download-jd',
   }
 }
 

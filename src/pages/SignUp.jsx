@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, User, Check } from 'lucide-react'
+import API_CONFIG from '../config/api'
 
 const SignUp = () => {
   const [formData, setFormData] = useState({
@@ -68,7 +69,7 @@ const SignUp = () => {
     setErrors({})
 
     try {
-      const response = await fetch("http://localhost:3005/db/register/", {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.REGISTER}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
