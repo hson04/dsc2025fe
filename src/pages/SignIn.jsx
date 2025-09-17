@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom' // Import useLocation
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import API_CONFIG from '../config/api'
 
@@ -13,6 +13,10 @@ const SignIn = () => {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation(); // Get location object
+
+  // Get the previous page URL from state or default to home
+  const previousPage = location.state?.from || '/';
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -74,11 +78,12 @@ const SignIn = () => {
       const data = await response.json()
       console.log("Login successful:", data)
 
-      // Lưu token vào localStorage
+      // Save token and user data to localStorage
       localStorage.setItem("access_token", data.access_token)
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      navigate("/dashboard")
+      // Redirect to the previous page
+      navigate(previousPage)
     } catch (error) {
       setErrors({ general: error.message })
     } finally {
@@ -98,17 +103,21 @@ const SignIn = () => {
       <div style={{ maxWidth: '448px', margin: '0 auto', width: '100%' }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{
-            width: '64px',
-            height: '64px',
-            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-            borderRadius: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
-          }}>
+          <div 
+            style={{
+              width: '64px',
+              height: '64px',
+              background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+              borderRadius: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+              cursor: 'pointer' // Add pointer cursor
+            }}
+            onClick={() => navigate('/')} // Ensure absolute path for navigation
+          >
             <span style={{ color: 'white', fontWeight: 'bold', fontSize: '24px' }}>CV</span>
           </div>
           <h2 style={{ 

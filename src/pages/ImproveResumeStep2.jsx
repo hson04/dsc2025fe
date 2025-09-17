@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Award, Cloud, Code, Briefcase } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Award, Cloud, Code, Briefcase, ChevronDown } from 'lucide-react'
 import API_CONFIG from '../config/api'
 
 const ImproveResumeStep2 = () => {
@@ -47,8 +47,17 @@ const ImproveResumeStep2 = () => {
   const [loadingProgress, setLoadingProgress] = useState(0); // ✅ Add progress state
   const [error, setError] = useState(null);
   const [focusedField, setFocusedField] = useState(null);
+  const [user, setUser] = useState(null); // Add user state for dropdown
+  const [dropdownVisible, setDropdownVisible] = useState(false); // Add dropdown visibility state
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
 
   useEffect(() => {
     const anyLoading = loading || isSubmitting;
@@ -787,34 +796,142 @@ const ImproveResumeStep2 = () => {
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '16px'
+              gap: '16px',
+              position: 'relative'
             }}>
-              <button 
-                onClick={() => navigate('/signin')}
-                style={{ 
-                  color: '#374151', 
-                  fontWeight: '500',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                Sign In
-              </button>
-              <button 
-                onClick={() => navigate('/signup')}
-                style={{
-                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 20px',
-                  borderRadius: '6px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Sign Up
-              </button>
+              {user ? (
+                <>
+                  <div 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      padding: '8px 12px', 
+                      border: '1px solid #e5e7eb', 
+                      borderRadius: '12px', 
+                      cursor: 'pointer', 
+                      transition: 'background-color 0.2s ease',
+                      userSelect: 'none',
+                      boxShadow: dropdownVisible ? '0 2px 4px rgba(0, 0, 0, 0.1)' : 'none'
+                    }}
+                    onClick={() => setDropdownVisible(!dropdownVisible)}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    ref={(el) => {
+                      if (el && dropdownVisible) {
+                        const dropdown = document.getElementById('dropdown-menu');
+                        if (dropdown) {
+                          dropdown.style.width = `${el.offsetWidth}px`;
+                        }
+                      }
+                    }}
+                  >
+                    <span style={{ color: '#374151', fontWeight: '500' }}>
+                      Welcome, {user.full_name || 'User'}
+                    </span>
+                    <ChevronDown size={16} color="#374151" />
+                  </div>
+                  {dropdownVisible && (
+                    <div
+                      id="dropdown-menu"
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        background: 'white',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        zIndex: 100,
+                        animation: 'fadeIn 0.2s ease-in-out'
+                      }}
+                    >
+                      <button 
+                        onClick={() => {
+                          navigate('/dashboard');
+                          setDropdownVisible(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Dashboard
+                      </button>
+                      <hr style={{ margin: 0, border: 'none', borderTop: '1px solid #e5e7eb' }} />
+                      <button 
+                        onClick={() => {
+                          localStorage.clear();
+                          setUser(null);
+                          setDropdownVisible(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Log Out
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => navigate('/signin', { state: { from: '/improve-resume/step2' } })}
+                    style={{ 
+                      color: '#374151', 
+                      fontWeight: '500',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={() => navigate('/signup')}
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

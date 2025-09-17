@@ -7,10 +7,14 @@ const ProtectedRoute = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) {
-      // Nếu không có token, chuyển hướng đến trang đăng nhập
-      navigate("/signin");
+      navigate("/signin", { replace: true }); // Use replace to prevent going back to the protected route
     }
   }, [navigate]);
+
+  const token = localStorage.getItem("access_token");
+  if (!token) {
+    return null; // Render nothing while redirecting
+  }
 
   return children;
 };
