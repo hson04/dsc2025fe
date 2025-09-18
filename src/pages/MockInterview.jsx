@@ -15,9 +15,27 @@ import {
 } from 'lucide-react'
 import API_CONFIG from '../config/api'
 import { createCustomAPI } from '../utils/api'
+import InterviewPreparation from '../components/InterviewPreparation'
 
 const MockInterview = () => {
   const navigate = useNavigate()
+  
+  // Interview preparation state
+  const [isInterviewReady, setIsInterviewReady] = useState(false)
+  const [preparationError, setPreparationError] = useState(null)
+
+  // Interview preparation handlers
+  const handleInterviewReady = (status) => {
+    console.log('Interview preparation completed:', status)
+    setIsInterviewReady(true)
+    setPreparationError(null)
+  }
+
+  const handlePreparationError = (error) => {
+    console.error('Interview preparation failed:', error)
+    setPreparationError(error)
+    setIsInterviewReady(false)
+  }
   
   // Backend configuration
   const [backendUrl, setBackendUrl] = useState(() => {
@@ -364,6 +382,26 @@ const MockInterview = () => {
       console.error('Voice processing failed:', error)
       alert(`Voice processing failed: ${error.message}`)
     }
+  }
+
+  // Show interview preparation if not ready
+  if (!isInterviewReady) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#f8fafc',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px'
+      }}>
+        <InterviewPreparation 
+          sessionId={roomId}
+          onReady={handleInterviewReady}
+          onError={handlePreparationError}
+        />
+      </div>
+    )
   }
 
   return (    <>

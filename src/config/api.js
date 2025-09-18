@@ -9,6 +9,8 @@ const API_CONFIG = {
   // Chat & Interview Endpoints
   CHAT: {
     DOMAIN: '/chat/chatDomain',
+    PREPARE_INTERVIEW: '/chat/prepare-interview',
+    EXTRACTION_STATUS: '/chat/extraction-status/',
     EXTRACT_CV: '/chat/extract-cv/',
     EXTRACT_JOB: '/chat/extract-job/',
     EVALUATION_DATA: '/chat/evaluation-data/',

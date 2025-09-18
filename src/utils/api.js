@@ -15,6 +15,18 @@ const getAuthHeaders = () => {
 // Main API calls - All từ dsc2025API
 export const mainAPI = {
   // Chat & Interview functions
+  prepareInterview: (sessionId) =>
+    fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.CHAT.PREPARE_INTERVIEW}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...getAuthHeaders() },
+      body: `session_id=${sessionId}`
+    }),
+
+  getExtractionStatus: (sessionId) =>
+    fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.CHAT.EXTRACTION_STATUS}${sessionId}`, {
+      headers: getAuthHeaders()
+    }),
+
   chatDomain: (data) =>
     fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.CHAT.DOMAIN}`, {
       method: 'POST',
@@ -113,6 +125,18 @@ export const createCustomAPI = (customUrl) => {
   const baseUrl = customUrl || API_CONFIG.BASE_URL
   
   return {
+    prepareInterview: (sessionId) =>
+      fetch(`${baseUrl}/chat/prepare-interview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...getAuthHeaders() },
+        body: `session_id=${sessionId}`
+      }),
+
+    getExtractionStatus: (sessionId) =>
+      fetch(`${baseUrl}/chat/extraction-status/${sessionId}`, {
+        headers: getAuthHeaders()
+      }),
+
     chatDomain: (data) =>
       fetch(`${baseUrl}/chat/chatDomain`, {
         method: 'POST',
