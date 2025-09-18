@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Briefcase, 
   Send, 
@@ -9,7 +10,6 @@ import {
   Plus,
   Clock,
   Download,
-  Settings,
   Menu,
   X
 } from 'lucide-react'
@@ -17,6 +17,8 @@ import API_CONFIG from '../config/api'
 import { createCustomAPI } from '../utils/api'
 
 const MockInterview = () => {
+  const navigate = useNavigate()
+  
   // Backend configuration
   const [backendUrl, setBackendUrl] = useState(() => {
     return localStorage.getItem('backendUrl') || API_CONFIG.BASE_URL
@@ -68,8 +70,7 @@ const MockInterview = () => {
   const language = 'vi'
   const mediaRecorderRef = useRef(null)
   const recordTimerRef = useRef(null)
-  const [currentInterview, setCurrentInterview] = useState('AI Engineer Interview')
-  const [showSettings, setShowSettings] = useState(false)
+  const [currentInterview, setCurrentInterview] = useState('New Interview')
   const [recentInterviews, setRecentInterviews] = useState([])
   const [loadingInterviews, setLoadingInterviews] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -77,6 +78,11 @@ const MockInterview = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  // Navigate to home page
+  const goToHome = () => {
+    navigate('/')
   }
 
   useEffect(() => {
@@ -122,7 +128,7 @@ const MockInterview = () => {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Fetch recent interviews from API
+  // Fetch recent interviews from API - only completed interviews
   const fetchRecentInterviews = async () => {
     try {
       setLoadingInterviews(true)
@@ -134,7 +140,11 @@ const MockInterview = () => {
       }
       
       const data = await response.json()
-      setRecentInterviews(data.sessions || [])
+      // Filter only completed interviews
+      const completedInterviews = (data.sessions || []).filter(session => 
+        session.status == 'completed'
+      )
+      setRecentInterviews(completedInterviews)
     } catch (error) {
       console.error('Failed to fetch recent interviews:', error)
       // Keep empty array on error
@@ -471,6 +481,68 @@ const MockInterview = () => {
             <X size={20} />
           </button>
           
+          {/* CVision Logo */}
+          <div 
+            onClick={goToHome}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '20px',
+              padding: '12px',
+              background: 'linear-gradient(135deg, #f8fafc, #e2e8f0)',
+              borderRadius: '12px',
+              border: '1px solid #e5e7eb',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = 'linear-gradient(135deg, #e2e8f0, #cbd5e1)'
+              e.target.style.transform = 'translateY(-1px)'
+              e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = 'linear-gradient(135deg, #f8fafc, #e2e8f0)'
+              e.target.style.transform = 'translateY(0)'
+              e.target.style.boxShadow = 'none'
+            }}
+          >
+            <div style={{
+              width: '40px',
+              height: '40px',
+              background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+            }}>
+              <Bot size={20} color="white" />
+            </div>
+            <div>
+              <h1 style={{
+                fontSize: '18px',
+                fontWeight: '700',
+                color: '#1e293b',
+                margin: 0,
+                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}>
+                CVision
+              </h1>
+              <p style={{
+                fontSize: '12px',
+                color: '#64748b',
+                margin: 0,
+                fontWeight: '500'
+              }}>
+                AI Mock Interview
+              </p>
+            </div>
+          </div>
+          
           <button 
             onClick={createNewSession}
             style={{
@@ -485,87 +557,23 @@ const MockInterview = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px'
+              gap: '8px',
+              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = 'translateY(-1px)'
+              e.target.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'translateY(0)'
+              e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)'
             }}
           >
             <Plus size={20} />
             New Interview Session
           </button>
-          
-
-          {/* Settings Button */}
-          <button 
-            onClick={() => setShowSettings(!showSettings)}
-            style={{
-              width: '100%',
-              background: 'white',
-              color: '#374151',
-              border: '1px solid #e5e7eb',
-              padding: '8px 16px',
-              borderRadius: '6px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              marginTop: '12px'
-            }}
-          >
-            <Settings size={16} />
-            {showSettings ? 'Hide Settings' : 'Show Settings'}
-          </button>
         </div>
-
-        {/* Settings Panel */}
-        {showSettings && (
-          <div style={{ padding: '16px 24px', borderBottom: '1px solid #e5e7eb' }}>
-            <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '12px' }}>
-              Backend Configuration
-            </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div>
-                <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
-                  Backend URL
-                </label>
-                <input
-                  type="text"
-                  value={backendUrl}
-                  onChange={(e) => setBackendUrl(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '6px 8px',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}
-                  placeholder="http://localhost:3005"
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
-                  Room ID
-                </label>
-                <input
-                  type="text"
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '6px 8px',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}
-                  placeholder="Auto-generated"
-                />
-              </div>
-              <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
-                Room ID: {roomId}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Recent Interviews */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -822,9 +830,27 @@ const MockInterview = () => {
                   borderRadius: '50%',
                   animation: 'pulse 2s infinite'
                 }}></div>
-                <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                  Backend: {backendUrl.replace('http://', '').replace('https://', '')}
-                </span>
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  style={{
+                    fontSize: '12px',
+                    color: '#3b82f6',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: '0',
+                    fontWeight: '500'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.color = '#1d4ed8'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.color = '#3b82f6'
+                  }}
+                >
+                  Dashboard
+                </button>
               </div>
             </div>
           </div>
@@ -886,8 +912,7 @@ const MockInterview = () => {
                   
                   {/* Show Start Interview button in bot messages that contain interview plan */}
                   {message.type === 'bot' && 
-                   message.message.includes('kế hoạch phỏng vấn') && 
-                   message.message.includes('Bấm nút') && (
+                   message.message.includes('đồng ý')  && (
                     <div style={{ marginTop: '12px' }}>
                       <button
                         onClick={() => sendMessage('Start')}
@@ -896,7 +921,7 @@ const MockInterview = () => {
                           borderRadius: '6px',
                           border: 'none',
                           cursor: 'pointer',
-                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          background: 'linear-gradient(135deg,rgb(87, 152, 250),rgb(183, 221, 254))',
                           color: 'white',
                           fontWeight: '600',
                           fontSize: '12px',

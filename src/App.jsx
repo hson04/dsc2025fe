@@ -23,7 +23,14 @@ function App() {
         <Routes>
           {/* CVision System Routes */}
           <Route path="/" element={<CVisionHome />} />
-          <Route path="/mock-interview" element={<MockInterview />} />
+          <Route 
+            path="/mock-interview" 
+            element={
+              <ProtectedRoute>
+                <MockInterview />
+              </ProtectedRoute>
+            } 
+          />
           <Route path="/improve-resume/step1" element={<ImproveResumeStep1 />} />
           <Route path="/improve-resume/step2" element={<ImproveResumeStep2 />} />
           <Route path="/improve-resume/step3" element={<ImproveResumeStep3 />} />
