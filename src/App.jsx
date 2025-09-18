@@ -14,6 +14,7 @@ import SignUp from './pages/SignUp'
 import SignIn from './pages/SignIn'
 import VerifyAccount from './pages/VerifyAccount'
 import EvaluationReport from './pages/EvaluationReport'
+import VirtualInterviewer from './pages/VirtualInterviewer'
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/verify-account" element={<VerifyAccount />} />
           <Route path="/evaluation-report" element={<EvaluationReport />} />
+          <Route path="/virtual-interviewer" element={<VirtualInterviewer />} />
         </Routes>
       </main>
       {/* <Chatbot /> */}

@@ -51,6 +51,7 @@ const CVisionHome = () => {
             }}>
               <a href="/" style={{ color: '#3b82f6', fontWeight: '500', textDecoration: 'none' }}>Home</a>
               <a href="/mock-interview" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Mock Interview</a>
+              <a href="/virtual-interviewer" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Virtual Interviewer</a>
               <a href="/resume-analysis/step1" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Resume Analysis</a>
               <a href="/improve-resume/step1" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Improve Resume</a>
             </nav>
@@ -156,8 +157,8 @@ const CVisionHome = () => {
               Get Started Free
             </button>
             
-            <button 
-              onClick={() => navigate('/mock-interview')}
+            <button
+              onClick={() => navigate('/virtual-interviewer')}
               style={{
                 background: 'transparent',
                 color: 'white',
@@ -172,8 +173,7 @@ const CVisionHome = () => {
                 gap: '12px'
               }}
             >
-              <Mic size={24} />
-              Try Mock Interview
+              🤖 Virtual Interviewer
             </button>
           </div>
 
@@ -418,6 +418,84 @@ const CVisionHome = () => {
                 }}
               >
                 Start Practice <ArrowRight size={20} />
+              </button>
+            </div>
+
+            {/* Virtual Interviewer */}
+            <div className="card" style={{ 
+              padding: '32px',
+              textAlign: 'center',
+              background: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+              border: '2px solid #f59e0b',
+              position: 'relative'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '-10px',
+                right: '20px',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '12px',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}>
+                NEW!
+              </div>
+              
+              <div style={{
+                width: '64px',
+                height: '64px',
+                background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 24px',
+                fontSize: '32px'
+              }}>
+                🤖
+              </div>
+              
+              <h3 style={{ 
+                fontSize: '24px', 
+                fontWeight: 'bold', 
+                color: '#111827', 
+                marginBottom: '16px'
+              }}>
+                Virtual Interviewer
+              </h3>
+              
+              <p style={{ 
+                color: '#6b7280', 
+                fontSize: '16px', 
+                lineHeight: '1.6',
+                marginBottom: '32px'
+              }}>
+                Experience immersive 3D interviews with voice interaction and real-time AI feedback
+              </p>
+              
+              <button
+                onClick={() => navigate('/virtual-interviewer')}
+                style={{
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '16px 32px',
+                  borderRadius: '12px',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                Try Virtual Interview <ArrowRight size={20} />
               </button>
             </div>
           </div>
