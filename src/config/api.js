@@ -54,6 +54,8 @@ const API_CONFIG = {
     SAVEIMPROVEMENTRESULTS: '/db/save-improvement-results/',
     GETHISTORY: '/db/get-history/', 
     DOWNLOADHISTORYFILE: '/db/download-history-file/',
+    VERIFY_EMAIL: '/db/verify-email',
+    RESEND_VERIFICATION: '/db/resend-verification',
   }
 }
 

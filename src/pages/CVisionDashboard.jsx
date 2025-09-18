@@ -291,9 +291,9 @@ const CVisionDashboard = () => {
     : 0;
 
   // Tính số lượng hoạt động trong tuần này
-  // Tạo thời điểm 1 tuần trước (đã điều chỉnh timezone)
-  const oneWeekAgo = new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000);
-  oneWeekAgo.setHours(oneWeekAgo.getHours() + 7); // Điều chỉnh timezone
+  // Tạo thời điểm 1 tuần trước
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
   
   const enhancedThisWeek = userHistory.improvement_results.filter(
     item => new Date(item.created_at) > oneWeekAgo
@@ -337,7 +337,16 @@ const CVisionDashboard = () => {
       return {
         type: isAnalysis ? 'analysis' : 'improvement',
         title: isAnalysis ? 'Resume Analysis' : 'Resume Enhancement',
-        time: new Date(new Date(item.created_at).getTime() + 7 * 60 * 60 * 1000).toLocaleString(),
+        time: new Date(item.created_at).toLocaleString('en-US', { 
+          timeZone: 'Asia/Ho_Chi_Minh',
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          second: 'numeric',
+          hour12: false
+        }),
         score: parseInt(item.score),
         icon: isAnalysis ? BarChart3 : Wand2,
         color: isAnalysis ? '#10b981' : '#3b82f6',
@@ -347,7 +356,7 @@ const CVisionDashboard = () => {
       };
     })
     .sort((a, b) => new Date(b.time) - new Date(a.time))
-    .slice(0, showAllActivity ? 5 : 3); // Show 3 or 5 items based on showAllActivity state
+    .slice(0, showAllActivity ? undefined : 3); // Mặc định chỉ hiện 3 items, khi show all thì hiện tất cả
 
   const quickActions = [
     {
@@ -449,6 +458,21 @@ const CVisionDashboard = () => {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc, #e2e8f0)' }}>
+      <style>
+        {`
+          .hide-scrollbar {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+            overflow-y: scroll !important;
+          }
+          .hide-scrollbar::-webkit-scrollbar {
+            width: 0 !important;
+            height: 0 !important;
+            background: transparent !important;
+            display: none !important;
+          }
+        `}
+      </style>
       {/* Header */}
       <header style={{ 
         background: 'white', 
@@ -763,7 +787,7 @@ const CVisionDashboard = () => {
                         cursor: 'pointer',
                         fontWeight: '500',
                         justifyContent: 'center',
-                        border: 'none'
+                        border: 'none',
                       }}
                     >
                       <Upload size={16} />
@@ -925,18 +949,22 @@ const CVisionDashboard = () => {
                       style={{
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '8px',
                         padding: '12px 20px',
+                        height: '48px',
                         background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
                         color: 'white',
-                        borderRadius: '8px',
+                        borderRadius: '12px',
                         cursor: 'pointer',
-                        fontWeight: '500',
-                        justifyContent: 'center',
-                        border: 'none'
+                        fontWeight: '550',
+                        border: 'none',
+                        width: '100%',
+                        fontSize: '15px'
                       }}
                     >
-                      {editJD ? 'Submit JD' : 'Edit JD'}
+                      <Edit size={16} />
+                      {'Edit Job Description'}
                     </button>
                   </div>
                 ) : (
@@ -964,20 +992,24 @@ const CVisionDashboard = () => {
                           onChange={(e) => setJobDescription(e.target.value)}
                         />
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            onClick={handleJDSubmit}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              padding: '8px 16px',
-                              background: '#3b82f6',
-                              color: 'white',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              fontSize: '14px',
-                              border: 'none'
-                            }}
+                      <button
+                        onClick={handleJDSubmit}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          padding: '12px 20px',
+                          height: '48px',
+                          background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
+                          color: 'white',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '16px',
+                          border: 'none',
+                          width: '100%'
+                        }}
                           >
                             Save Changes
                           </button>
@@ -1006,18 +1038,22 @@ const CVisionDashboard = () => {
                         style={{
                           display: 'flex',
                           alignItems: 'center',
+                          justifyContent: 'center',
                           gap: '8px',
-                          padding: '8px 16px',
-                          background: '#f3f4f6',
-                          color: '#374151',
-                          borderRadius: '6px',
+                          padding: '12px 20px',
+                          height: '48px',
+                          background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
+                          color: 'white',
+                          borderRadius: '12px',
                           cursor: 'pointer',
-                          fontSize: '14px',
-                          border: 'none'
+                          fontWeight: '500',
+                          fontSize: '16px',
+                          border: 'none',
+                          width: '100%'
                         }}
                       >
-                        <Edit size={14} />
-                        Edit
+                        <Edit size={20} />
+                        Edit Job Description
                       </button>
                     )}
                   </div>
@@ -1249,14 +1285,16 @@ const CVisionDashboard = () => {
                   {showAllActivity ? 'Show Less' : 'View All'}
                 </button>
               </div>
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: '16px',
-                maxHeight: showAllActivity ? '400px' : 'auto',
-                overflowY: showAllActivity ? 'auto' : 'visible',
-                paddingRight: showAllActivity ? '8px' : '0'
-              }}>
+              <div 
+                className="hide-scrollbar"
+                style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '16px',
+                   maxHeight: showAllActivity ? '400px' : '320px', // Chiều cao cho 3 items (mỗi item 100px + gap 16px)
+                  overflowY: 'auto',
+                  paddingRight: '8px'
+                }}>
                 {isHistoryLoading ? (
                   <div style={{
                     padding: '20px',

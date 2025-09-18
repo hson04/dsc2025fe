@@ -571,16 +571,20 @@ const ImproveResumeStep1 = () => {
               alignItems: 'center', 
               gap: '12px'
             }}>
-              <div style={{
-                width: '32px',
-                height: '32px', 
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: 'white', fontWeight: 'bold', fontSize: '12px' }}>CV</span>
+              <div 
+                style={{
+                  width: '40px',
+                  height: '40px', 
+                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+                onClick={() => navigate('/')}
+              >
+                <span style={{ color: 'white', fontWeight: 'bold' }}>CV</span>
               </div>
               <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>

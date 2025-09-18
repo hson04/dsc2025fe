@@ -221,15 +221,9 @@ const ResumeAnalysisStep2 = () => {
           setIsAnalyzing(false);
         }
       } else {
-        // ✅ No analysis data found - redirect to step 1
+        // ✅ No analysis data found - redirect to step 1 immediately
         console.log('No analysis data found, redirecting to step 1');
-        setError('No analysis result found. Please complete step 1 first.');
-        setLoading(false);
-        setIsAnalyzing(false);
-        // Auto redirect after 2 seconds
-        setTimeout(() => {
-          navigate('/resume-analysis/step1');
-        }, 2000);
+        navigate('/resume-analysis/step1');
       }
     };
 
@@ -567,16 +561,17 @@ const ResumeAnalysisStep2 = () => {
       }}>
         <div style={{ textAlign: 'center', maxWidth: '500px' }}>
           <div style={{
-            width: '64px',
-            height: '64px',
+            width: '96px',
+            height: '96px',
             background: '#fee2e2',
-            borderRadius: '16px',
+            borderRadius: '24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 24px'
+            margin: '0 auto 32px',
+            animation: 'shake 0.5s ease-in-out'
           }}>
-            <AlertTriangle size={32} color="#dc2626" />
+            <AlertTriangle size={48} color="#dc2626" />
           </div>
           <h2 style={{ 
             fontSize: '36px', 
@@ -584,30 +579,61 @@ const ResumeAnalysisStep2 = () => {
             color: '#111827', 
             marginBottom: '16px'
           }}>
-            ⚠️ Error
+            ⚠️ Access Denied
           </h2>
           <p style={{ 
-            fontSize: '18px', 
+            fontSize: '20px', 
             color: '#6b7280',
-            marginBottom: '24px',
-            lineHeight: '1.6'
+            marginBottom: '32px',
+            lineHeight: '1.6',
+            maxWidth: '500px',
+            margin: '0 auto 32px'
           }}>
-            {error}
+            {error || 'You need to complete Step 1 first before accessing the analysis results.'}
           </p>
-          <button
-            onClick={() => navigate('/resume-analysis/step1')}
-            style={{
-              background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            Go to Step 1
-          </button>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px'
+          }}>
+            <button
+              onClick={() => navigate('/resume-analysis/step1')}
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                color: 'white',
+                border: 'none',
+                padding: '16px 32px',
+                borderRadius: '12px',
+                fontWeight: '600',
+                fontSize: '18px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 15px 35px rgba(59, 130, 246, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 10px 25px rgba(59, 130, 246, 0.3)';
+              }}
+            >
+              <ArrowLeft size={24} />
+              Go to Resume Analysis Step 1
+            </button>
+            <p style={{ 
+              fontSize: '14px', 
+              color: '#6b7280',
+              textAlign: 'center' 
+            }}>
+              You will be automatically redirected in 2 seconds...
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -1105,10 +1131,13 @@ const ResumeAnalysisStep2 = () => {
           
           <button
             onClick={() => {
-              // ✅ Clear analysis data when navigating to improve resume
-              sessionStorage.removeItem('analysisResults');
-              console.log('Cleared analysis results when navigating to improve resume');
-              navigate('/improve-resume/step1')
+              // Chuyển thẳng đến step 2 và giữ lại analysis results
+              navigate('/improve-resume/step2', { 
+                state: { 
+                  fromAnalysis: true,
+                  loading: false 
+                }
+              });
             }}
             style={{
               display: 'flex',
@@ -1202,6 +1231,12 @@ const ResumeAnalysisStep2 = () => {
           @keyframes blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
+          }
+
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
           }
         `}
       </style>

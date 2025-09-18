@@ -1122,21 +1122,39 @@ const ImproveResumeStep3 = () => {
     }
   }, []); // Run only on mount
 
-  // ✅ Effect to clear stale location state on F5
+  // ✅ Effect to validate navigation flow and redirect if needed
   useEffect(() => {
-    // Check if we have data but also have location state (likely F5 case)
-    const pdfUrl = sessionStorage.getItem('generatedResumePDF')
-    const resumeData = sessionStorage.getItem('generatedResume')
-    const hasData = pdfUrl || resumeData
-    const step3DataProcessed = sessionStorage.getItem('step3DataProcessed')
+    // Check required data from previous steps
+    const analysisResults = sessionStorage.getItem('analysisResults');
+    const step2FormData = sessionStorage.getItem('step2FormData');
+    const pdfUrl = sessionStorage.getItem('generatedResumePDF');
+    const resumeData = sessionStorage.getItem('generatedResume');
+    const step3DataProcessed = sessionStorage.getItem('step3DataProcessed');
     
-    // If we have data AND step3DataProcessed flag, this is F5 with stale location state
-    if (hasData && step3DataProcessed && location.state) {
+    // Validate proper flow: must have both step1 and step2 data
+    const hasStep1Data = analysisResults;
+    const hasStep2Data = step2FormData;
+    const hasGeneratedData = pdfUrl || resumeData;
+    
+    // If missing data from either step, redirect to appropriate step
+    if (!hasStep1Data) {
+      console.log('Missing step 1 data - redirecting to step 1');
+      navigate('/improve-resume/step1');
+      return;
+    }
+    
+    if (!hasStep2Data && !hasGeneratedData) {
+      console.log('Missing step 2 data - redirecting to step 2');
+      navigate('/improve-resume/step2');
+      return;
+    }
+
+    // Handle F5 case
+    if (hasGeneratedData && step3DataProcessed && location.state) {
       console.log('F5 detected with stale location state - clearing it');
-      // Clear the stale location state
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []) // Run only once on mount
+  }, [navigate])
 
   // ✅ Effect to trigger missing calculations after F5
   useEffect(() => {
@@ -1909,17 +1927,20 @@ const ImproveResumeStep3 = () => {
               alignItems: 'center', 
               gap: '12px'
             }}>
-              <div style={{
-                width: '32px',
-                height: '32px', 
-                
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: 'white', fontWeight: 'bold', fontSize: '12px' }}>CV</span>
+              <div 
+                style={{
+                  width: '40px',
+                  height: '40px', 
+                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+                onClick={() => navigate('/')}
+              >
+                <span style={{ color: 'white', fontWeight: 'bold' }}>CV</span>
               </div>
               <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>

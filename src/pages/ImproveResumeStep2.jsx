@@ -65,10 +65,19 @@ const ImproveResumeStep2 = () => {
     const handleBeforeUnload = (e) => {
       if (anyLoading) {
         e.preventDefault()
-        e.returnValue = 'Processing is still in progress. Are you sure you want to leave?'
-        return 'Processing is still in progress. Are you sure you want to leave?'
+        e.returnValue = 'Changes you made may not be saved. Are you sure you want to leave?'
+        return 'Changes you made may not be saved. Are you sure you want to leave?'
       }
     }
+
+    const handlePopState = (e) => {
+      if (anyLoading) {
+        if (!window.confirm('Changes you made may not be saved. Are you sure you want to leave?')) {
+          e.preventDefault();
+          window.history.pushState(null, '', window.location.pathname);
+        }
+      }
+    };
 
     const handleKeyDown = (e) => {
       if (e.key === 'F5' || (e.ctrlKey && e.key === 'r') || (e.metaKey && e.key === 'r')) {
@@ -156,12 +165,15 @@ const ImproveResumeStep2 = () => {
     window.addEventListener('keydown', handleKeyDown, true)
     window.addEventListener('keyup', handleKeyUp, true)
     document.addEventListener('keydown', handleKeyDown, true)
+    window.addEventListener('popstate', handlePopState)
+    window.history.pushState(null, '', window.location.pathname)
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       window.removeEventListener('keydown', handleKeyDown, true)
       window.removeEventListener('keyup', handleKeyUp, true)
       document.removeEventListener('keydown', handleKeyDown, true)
+      window.removeEventListener('popstate', handlePopState)
     }
   }, [loading, isSubmitting])
 
@@ -768,16 +780,20 @@ const ImproveResumeStep2 = () => {
               alignItems: 'center', 
               gap: '12px'
             }}>
-              <div style={{
-                width: '32px',
-                height: '32px', 
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: 'white', fontWeight: 'bold', fontSize: '12px' }}>CV</span>
+              <div 
+                style={{
+                  width: '40px',
+                  height: '40px', 
+                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+                onClick={() => navigate('/')}
+              >
+                <span style={{ color: 'white', fontWeight: 'bold' }}>CV</span>
               </div>
               <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>
