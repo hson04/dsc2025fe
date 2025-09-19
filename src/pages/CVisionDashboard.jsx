@@ -31,7 +31,12 @@ const CVisionDashboard = () => {
   const [jobDescription, setJobDescription] = useState(''); // State for job description text input
   const [editJD, setEditJD] = useState(false); // State to control JD edit/submit
   const [isLoading, setIsLoading] = useState({ resume: false, jd: false }); // Track loading states
-  const [userHistory, setUserHistory] = useState({ analysis_results: [], improvement_results: [] });
+  const [userHistory, setUserHistory] = useState({ 
+    analysis_results: [], 
+    improvement_results: [], 
+    interview_results: [],
+    interview_stats: { total_interviews: 0, completed_interviews: 0, completion_rate: 0 }
+  });
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [showAllActivity, setShowAllActivity] = useState(false);
 
@@ -279,12 +284,12 @@ const CVisionDashboard = () => {
   }
 
   // Tính toán số lượng resume đã cải thiện
-  const totalEnhanced = userHistory.improvement_results.length;
+  const totalEnhanced = (userHistory.improvement_results || []).length;
 
   // Tính điểm trung bình từ cả analysis và improvement
   const allScores = [
-    ...userHistory.analysis_results.map(item => parseInt(item.score)),
-    ...userHistory.improvement_results.map(item => parseInt(item.score))
+    ...(userHistory.analysis_results || []).map(item => parseInt(item.score)),
+    ...(userHistory.improvement_results || []).map(item => parseInt(item.score))
   ];
   const averageScore = allScores.length > 0 
     ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
@@ -295,7 +300,11 @@ const CVisionDashboard = () => {
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
   
-  const enhancedThisWeek = userHistory.improvement_results.filter(
+  const enhancedThisWeek = (userHistory.improvement_results || []).filter(
+    item => new Date(item.created_at) > oneWeekAgo
+  ).length;
+
+  const interviewsThisWeek = (userHistory.interview_results || []).filter(
     item => new Date(item.created_at) > oneWeekAgo
   ).length;
 
@@ -309,10 +318,10 @@ const CVisionDashboard = () => {
     },
     {
       title: 'Mock Interviews',
-      value: '7',
+      value: (userHistory.interview_stats?.total_interviews || 0).toString(),
       icon: MessageSquare,
       color: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-      change: '+2 this week'
+      change: `+${interviewsThisWeek} this week`
     },
     {
       title: 'Avg. Score',
@@ -322,21 +331,28 @@ const CVisionDashboard = () => {
       change: 'Overall performance'
     },
     {
-      title: 'Interview Success',
-      value: '92%',
+      title: 'Interview Completion',
+      value: `${userHistory.interview_stats?.completion_rate || 0}%`,
       icon: Award,
       color: 'linear-gradient(135deg, #f59e0b, #dc2626)',
-      change: 'Above average'
+      change: `${userHistory.interview_stats?.completed_interviews || 0}/${userHistory.interview_stats?.total_interviews || 0} completed`
     }
   ]
 
   // Combine and sort history items
-  const recentActivity = [...userHistory.analysis_results, ...userHistory.improvement_results]
+  const recentActivity = [
+    ...(userHistory.analysis_results || []).map(item => ({ ...item, activityType: 'analysis' })),
+    ...(userHistory.improvement_results || []).map(item => ({ ...item, activityType: 'improvement' })),
+    ...(userHistory.interview_results || []).map(item => ({ ...item, activityType: 'interview' }))
+  ]
     .map(item => {
-      const isAnalysis = 'report_id' in item;
+      const isAnalysis = item.activityType === 'analysis';
+      const isImprovement = item.activityType === 'improvement';
+      const isInterview = item.activityType === 'interview';
+      
       return {
-        type: isAnalysis ? 'analysis' : 'improvement',
-        title: isAnalysis ? 'Resume Analysis' : 'Resume Enhancement',
+        type: item.activityType,
+        title: isAnalysis ? 'Resume Analysis' : isImprovement ? 'Resume Enhancement' : 'Mock Interview',
         time: new Date(item.created_at).toLocaleString('en-US', { 
           timeZone: 'Asia/Ho_Chi_Minh',
           year: 'numeric',
@@ -347,12 +363,13 @@ const CVisionDashboard = () => {
           second: 'numeric',
           hour12: false
         }),
-        score: parseInt(item.score),
-        icon: isAnalysis ? BarChart3 : Wand2,
-        color: isAnalysis ? '#10b981' : '#3b82f6',
+        score: isInterview ? 85 : parseInt(item.score), // Default score for interviews
+        icon: isAnalysis ? BarChart3 : isImprovement ? Wand2 : MessageSquare,
+        color: isAnalysis ? '#10b981' : isImprovement ? '#3b82f6' : '#8b5cf6',
         id: item._id,
         report_id: isAnalysis ? item.report_id : null,
-        new_resume_id: !isAnalysis ? item.new_resume_id : null
+        new_resume_id: isImprovement ? item.new_resume_id : null,
+        session_id: isInterview ? item.session_id : null
       };
     })
     .sort((a, b) => new Date(b.time) - new Date(a.time))
@@ -1315,7 +1332,12 @@ const CVisionDashboard = () => {
                   <div 
                     key={index} 
                     onClick={() => {
-                      // Nếu là analysis, tải report, nếu là improvement, tải resume
+                      // Nếu là analysis, tải report, nếu là improvement, tải resume, nếu là interview thì không làm gì
+                      if (activity.type === 'interview') {
+                        // For interviews, we could navigate to interview report or show a message
+                        alert('Interview completed successfully!');
+                        return;
+                      }
                       const fileId = activity.type === 'analysis' ? activity.report_id : activity.new_resume_id;
                       downloadHistoryFile(fileId, activity);
                     }}
@@ -1393,7 +1415,7 @@ const CVisionDashboard = () => {
                           pointerEvents: 'none',
                           whiteSpace: 'nowrap'
                         }}>
-                          Click to download {activity.type === 'analysis' ? 'report' : 'resume'}
+                          {activity.type === 'interview' ? 'Click to view interview details' : `Click to download ${activity.type === 'analysis' ? 'report' : 'resume'}`}
                         </div>
                       </div>
                       <div style={{ 
@@ -1472,7 +1494,7 @@ const CVisionDashboard = () => {
                       margin: 0,
                       lineHeight: '1.3'
                     }}>
-                      Scored 90+ in 3 mock interviews
+                      Completed {userHistory.interview_stats?.completed_interviews || 0} mock interviews
                     </p>
                   </div>
                 </div>
