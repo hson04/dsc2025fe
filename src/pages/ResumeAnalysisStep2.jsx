@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { 
   CheckCircle, 
@@ -9,22 +9,33 @@ import {
   Wand2,
   Download,
   ArrowLeft,
-  BarChart3
+  BarChart3,
+  ChevronDown
 } from 'lucide-react'
 import axios from 'axios'
 import API_CONFIG from '../config/api'
 
 const ResumeAnalysisStep2 = () => {
-  const [isAnalyzing, setIsAnalyzing] = useState(true)
-  const [progress, setProgress] = useState(0)
-  const [analysisResults, setAnalysisResults] = useState(null)
-  const [expandedScores, setExpandedScores] = useState({})
-  const [percentage] = useState(78) // Default value for match score
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [isDownloadingReport, setIsDownloadingReport] = useState(false) // ✅ Add download state
-  const navigate = useNavigate()
+  const [isAnalyzing, setIsAnalyzing] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [analysisResults, setAnalysisResults] = useState(null);
+  const [expandedScores, setExpandedScores] = useState({});
+  const [percentage] = useState(78);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+  const [user, setUser] = useState(null); // Add user state for dropdown
+  const [dropdownVisible, setDropdownVisible] = useState(false); // Add dropdown visibility state
+  // Removed save status state
+  const navigate = useNavigate();
   const location = useLocation()
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
 
   // ✅ Effect to prevent F5 reload when loading or analyzing
   useEffect(() => {
@@ -210,15 +221,9 @@ const ResumeAnalysisStep2 = () => {
           setIsAnalyzing(false);
         }
       } else {
-        // ✅ No analysis data found - redirect to step 1
+        // ✅ No analysis data found - redirect to step 1 immediately
         console.log('No analysis data found, redirecting to step 1');
-        setError('No analysis result found. Please complete step 1 first.');
-        setLoading(false);
-        setIsAnalyzing(false);
-        // Auto redirect after 2 seconds
-        setTimeout(() => {
-          navigate('/resume-analysis/step1');
-        }, 2000);
+        navigate('/resume-analysis/step1');
       }
     };
 
@@ -477,6 +482,8 @@ const ResumeAnalysisStep2 = () => {
     }
   }
 
+  // Removed save analysis result related code
+
   if (isAnalyzing) {
     return (
       <div style={{ 
@@ -554,16 +561,17 @@ const ResumeAnalysisStep2 = () => {
       }}>
         <div style={{ textAlign: 'center', maxWidth: '500px' }}>
           <div style={{
-            width: '64px',
-            height: '64px',
+            width: '96px',
+            height: '96px',
             background: '#fee2e2',
-            borderRadius: '16px',
+            borderRadius: '24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 24px'
+            margin: '0 auto 32px',
+            animation: 'shake 0.5s ease-in-out'
           }}>
-            <AlertTriangle size={32} color="#dc2626" />
+            <AlertTriangle size={48} color="#dc2626" />
           </div>
           <h2 style={{ 
             fontSize: '36px', 
@@ -571,30 +579,61 @@ const ResumeAnalysisStep2 = () => {
             color: '#111827', 
             marginBottom: '16px'
           }}>
-            ⚠️ Error
+            ⚠️ Access Denied
           </h2>
           <p style={{ 
-            fontSize: '18px', 
+            fontSize: '20px', 
             color: '#6b7280',
-            marginBottom: '24px',
-            lineHeight: '1.6'
+            marginBottom: '32px',
+            lineHeight: '1.6',
+            maxWidth: '500px',
+            margin: '0 auto 32px'
           }}>
-            {error}
+            {error || 'You need to complete Step 1 first before accessing the analysis results.'}
           </p>
-          <button
-            onClick={() => navigate('/resume-analysis/step1')}
-            style={{
-              background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            Go to Step 1
-          </button>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px'
+          }}>
+            <button
+              onClick={() => navigate('/resume-analysis/step1')}
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                color: 'white',
+                border: 'none',
+                padding: '16px 32px',
+                borderRadius: '12px',
+                fontWeight: '600',
+                fontSize: '18px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 15px 35px rgba(59, 130, 246, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 10px 25px rgba(59, 130, 246, 0.3)';
+              }}
+            >
+              <ArrowLeft size={24} />
+              Go to Resume Analysis Step 1
+            </button>
+            <p style={{ 
+              fontSize: '14px', 
+              color: '#6b7280',
+              textAlign: 'center' 
+            }}>
+              You will be automatically redirected in 2 seconds...
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -611,7 +650,7 @@ const ResumeAnalysisStep2 = () => {
         borderBottom: '1px solid #e5e7eb',
         position: 'sticky',
         top: 0,
-        zIndex: 10
+        zIndex: 50
       }}>
         <div style={{ 
           maxWidth: '1200px', 
@@ -630,23 +669,27 @@ const ResumeAnalysisStep2 = () => {
               gap: '12px'
             }}>
               <div style={{
-                width: '32px',
-                height: '32px', 
+                width: '40px',
+                height: '40px', 
                 background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                borderRadius: '8px',
+                borderRadius: '12px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: 'white', fontWeight: 'bold', fontSize: '12px' }}>CV</span>
+                justifyContent: 'center',
+                cursor: 'pointer' // Add pointer cursor
+              }}
+              onClick={() => navigate('/')} // Navigate to home
+              >
+                <span style={{ color: 'white', fontWeight: 'bold' }}>CV</span>
               </div>
-              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
+              <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>
             
             <nav style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '32px'
+              gap: '32px',
+              userSelect: 'none' // Disable text selection
             }}>
               <a href="/" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Home</a>
               <a href="/mock-interview" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Mock Interview</a>
@@ -657,34 +700,143 @@ const ResumeAnalysisStep2 = () => {
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '16px'
+              gap: '16px',
+              position: 'relative' // Added for dropdown positioning
             }}>
-              <button 
-                onClick={() => navigate('/signin')}
-                style={{ 
-                  color: '#374151', 
-                  fontWeight: '500',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                Sign In
-              </button>
-              <button 
-                onClick={() => navigate('/signup')}
-                style={{
-                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 20px',
-                  borderRadius: '6px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Sign Up
-              </button>
+              {user ? (
+                <>
+                  <div 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      padding: '8px 12px', 
+                      border: '1px solid #e5e7eb', 
+                      borderRadius: '12px', 
+                      cursor: 'pointer', 
+                      transition: 'background-color 0.2s ease',
+                      userSelect: 'none',
+                      boxShadow: dropdownVisible ? '0 2px 4px rgba(0, 0, 0, 0.1)' : 'none'
+                    }}
+                    onClick={() => setDropdownVisible(!dropdownVisible)}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    ref={(el) => {
+                      if (el && dropdownVisible) {
+                        const dropdown = document.getElementById('dropdown-menu');
+                        if (dropdown) {
+                          dropdown.style.width = `${el.offsetWidth}px`; // Dynamically set dropdown width
+                        }
+                      }
+                    }}
+                  >
+                    <span style={{ color: '#374151', fontWeight: '500' }}>
+                      Welcome, {user.full_name || 'User'}
+                    </span>
+                    <ChevronDown size={16} color="#374151" />
+                  </div>
+                  {dropdownVisible && (
+                    <div
+                      id="dropdown-menu"
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        background: 'white',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        zIndex: 100,
+                        animation: 'fadeIn 0.2s ease-in-out'
+                      }}
+                    >
+                      <button 
+                        onClick={() => {
+                          navigate('/dashboard');
+                          setDropdownVisible(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Dashboard
+                      </button>
+                      <hr style={{ margin: 0, border: 'none', borderTop: '1px solid #e5e7eb' }} />
+                      <button 
+                        onClick={() => {
+                          localStorage.clear();
+                          setUser(null);
+                          // Removed navigation on logout
+                          setDropdownVisible(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Log Out
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => navigate('/signin', { state: { from: '/resume-analysis/step2' } })}
+                    style={{ 
+                      color: '#374151', 
+                      fontWeight: '500',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={() => navigate('/signup')}
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -979,10 +1131,13 @@ const ResumeAnalysisStep2 = () => {
           
           <button
             onClick={() => {
-              // ✅ Clear analysis data when navigating to improve resume
-              sessionStorage.removeItem('analysisResults');
-              console.log('Cleared analysis results when navigating to improve resume');
-              navigate('/improve-resume/step1')
+              // Chuyển thẳng đến step 2 và giữ lại analysis results
+              navigate('/improve-resume/step2', { 
+                state: { 
+                  fromAnalysis: true,
+                  loading: false 
+                }
+              });
             }}
             style={{
               display: 'flex',
@@ -1076,6 +1231,12 @@ const ResumeAnalysisStep2 = () => {
           @keyframes blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
+          }
+
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
           }
         `}
       </style>

@@ -42,13 +42,20 @@ const API_CONFIG = {
     DOWNLOAD_PDF: '/chat/final-report/'
   },
   USERDB:{
-    LOGIN: '/db/login',
-    REGISTER: '/db/register',
-    DASHBOARD: '/db/dashboard',
-    UPLOADRESUME: '/db/upload-resume',
-    UPLOADJD: '/db/upload-jd',
-    DOWNLOADRESUME: '/db/download-resume',
-    DOWNLOADJD: '/db/download-jd',
+    LOGIN: '/db/login/',
+    REGISTER: '/db/register/',
+    DASHBOARD: '/db/dashboard/',
+    UPLOADRESUME: '/db/upload-resume/',
+    SUBMITJD: '/db/submit-jd/',
+    DOWNLOADRESUME: '/db/download-resume/',
+    USERFILES: '/db/user-files/',
+    VIEWRESUME: '/db/view-resume/',
+    SAVEANALYSISRESULT: '/db/save-analysis-result/',
+    SAVEIMPROVEMENTRESULTS: '/db/save-improvement-results/',
+    GETHISTORY: '/db/get-history/', 
+    DOWNLOADHISTORYFILE: '/db/download-history-file/',
+    VERIFY_EMAIL: '/db/verify-email',
+    RESEND_VERIFICATION: '/db/resend-verification',
   }
 }
 

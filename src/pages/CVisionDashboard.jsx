@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import API_CONFIG from '../config/api'
 import { 
   User, 
   FileText, 
@@ -14,16 +15,25 @@ import {
   Download,
   Upload,
   Edit,
-  File
+  File,
+  ChevronDown,
+  FileDown // Add download icon
 } from 'lucide-react'
-import API_CONFIG from '../config/api'
-
 const CVisionDashboard = () => {
   const navigate = useNavigate()
-  const [user, setUser] = useState({ full_name: '', id: '' });
+  const [user, setUser] = useState(null);
   const [dashboardData, setDashboardData] = useState(null)
   const [error, setError] = useState(null)
   const [uploadStatus, setUploadStatus] = useState({ resume: false, jd: false })
+  const [dropdownVisible, setDropdownVisible] = useState(false); // For user menu dropdown
+  const [resumeContent, setResumeContent] = useState(null);
+  const [viewResume, setViewResume] = useState(false); // Track if "View Resume" is clicked
+  const [jobDescription, setJobDescription] = useState(''); // State for job description text input
+  const [editJD, setEditJD] = useState(false); // State to control JD edit/submit
+  const [isLoading, setIsLoading] = useState({ resume: false, jd: false }); // Track loading states
+  const [userHistory, setUserHistory] = useState({ analysis_results: [], improvement_results: [] });
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [showAllActivity, setShowAllActivity] = useState(false);
 
   useEffect(() => {
     // Lấy thông tin người dùng từ localStorage
@@ -37,12 +47,75 @@ const CVisionDashboard = () => {
           resume: !!userData.resume_id,
           jd: !!userData.jd_id
         });
+      } else {
+        navigate("/signin"); // Redirect if no user
       }
     } catch (error) {
       console.error("Failed to parse user data from localStorage:", error);
       localStorage.removeItem("user"); // Clear invalid data
     }
-  }, []);
+  }, [navigate]);
+
+  useEffect(() => {
+    const fetchUserFiles = async () => {
+      const token = localStorage.getItem("access_token");
+      try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.USERFILES}${user.id}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch user files");
+        }
+
+        const data = await response.json();
+        setUploadStatus({
+          resume: !!data.resume_id,
+          jd: !!data.jd_text, // Change to jd_text
+        });
+      } catch (err) {
+        console.error("Error fetching user files:", err);
+      }
+    };
+
+    if (user) {
+      fetchUserFiles();
+    }
+  }, [user]);
+
+  // Fetch user history
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!user) return;
+      
+      const token = localStorage.getItem("access_token");
+      try {
+        setIsHistoryLoading(true);
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.GETHISTORY}${user.id}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch history");
+        }
+
+        const data = await response.json();
+        setUserHistory(data);
+      } catch (err) {
+        console.error("Error fetching history:", err);
+      } finally {
+        setIsHistoryLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, [user]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -70,6 +143,107 @@ const CVisionDashboard = () => {
 
     fetchDashboardData()
   }, [])
+
+  const fetchResume = async () => {
+    if (viewResume) {
+      // If already viewing, toggle back to initial state
+      setViewResume(false);
+      return;
+    }
+
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.VIEWRESUME}${user.id}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch resume");
+      }
+
+      const data = await response.json();
+      
+      // Nếu là file DOCX, tự động tải về
+      if (!data.is_pdf) {
+        handleFileDownload('resume');
+        return;
+      }
+
+      // Nếu là PDF, hiển thị như bình thường
+      setResumeContent(data);
+      setViewResume(true);
+    } catch (err) {
+      alert(`Error fetching resume: ${err.message}`);
+    }
+  };
+
+  const downloadHistoryFile = async (fileId, activity) => {
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.DOWNLOADHISTORYFILE}${fileId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download file');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // Tạo tên file dựa trên loại file và tên người dùng
+      const fileType = activity.type === 'analysis' ? 'report' : 'resume';
+      const fileName = `${fileType}_${user.full_name.replace(/\s+/g, '_')}.pdf`;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Error downloading file:', err);
+      alert('Failed to download file');
+    }
+  };
+
+  const handleJDSubmit = async () => {
+    const token = localStorage.getItem("access_token");
+    const formData = new FormData();
+    formData.append('user_id', user.id);
+    formData.append('jd_text', jobDescription);
+
+    try {
+      setIsLoading(prev => ({ ...prev, jd: true }));
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.SUBMITJD}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to submit JD`);
+      }
+
+      // Update upload status
+      setUploadStatus(prev => ({
+        ...prev,
+        jd: true
+      }));
+      setEditJD(false); // Disable editing after submission
+    } catch (err) {
+      console.error('Error submitting JD:', err);
+    } finally {
+      setIsLoading(prev => ({ ...prev, jd: false }));
+    }
+  };
 
   if (error) {
     return (
@@ -104,13 +278,34 @@ const CVisionDashboard = () => {
     )
   }
 
+  // Tính toán số lượng resume đã cải thiện
+  const totalEnhanced = userHistory.improvement_results.length;
+
+  // Tính điểm trung bình từ cả analysis và improvement
+  const allScores = [
+    ...userHistory.analysis_results.map(item => parseInt(item.score)),
+    ...userHistory.improvement_results.map(item => parseInt(item.score))
+  ];
+  const averageScore = allScores.length > 0 
+    ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
+    : 0;
+
+  // Tính số lượng hoạt động trong tuần này
+  // Tạo thời điểm 1 tuần trước
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  
+  const enhancedThisWeek = userHistory.improvement_results.filter(
+    item => new Date(item.created_at) > oneWeekAgo
+  ).length;
+
   const stats = [
     {
       title: 'Resumes Enhanced',
-      value: '3',
+      value: totalEnhanced.toString(),
       icon: FileText,
       color: 'linear-gradient(135deg, #3b82f6, #1e40af)',
-      change: '+1 this week'
+      change: `+${enhancedThisWeek} this week`
     },
     {
       title: 'Mock Interviews',
@@ -121,10 +316,10 @@ const CVisionDashboard = () => {
     },
     {
       title: 'Avg. Score',
-      value: '85%',
+      value: `${averageScore}%`,
       icon: TrendingUp,
       color: 'linear-gradient(135deg, #10b981, #059669)',
-      change: '+12% improvement'
+      change: 'Overall performance'
     },
     {
       title: 'Interview Success',
@@ -135,32 +330,33 @@ const CVisionDashboard = () => {
     }
   ]
 
-  const recentActivity = [
-    {
-      type: 'resume',
-      title: 'Enhanced Software Engineer Resume',
-      time: '2 hours ago',
-      score: 92,
-      icon: Wand2,
-      color: '#3b82f6'
-    },
-    {
-      type: 'interview',
-      title: 'Mock Interview - Product Manager',
-      time: '1 day ago', 
-      score: 88,
-      icon: MessageSquare,
-      color: '#8b5cf6'
-    },
-    {
-      type: 'analysis',
-      title: 'Resume Analysis - Data Scientist',
-      time: '2 days ago',
-      score: 76,
-      icon: BarChart3,
-      color: '#10b981'
-    }
-  ]
+  // Combine and sort history items
+  const recentActivity = [...userHistory.analysis_results, ...userHistory.improvement_results]
+    .map(item => {
+      const isAnalysis = 'report_id' in item;
+      return {
+        type: isAnalysis ? 'analysis' : 'improvement',
+        title: isAnalysis ? 'Resume Analysis' : 'Resume Enhancement',
+        time: new Date(item.created_at).toLocaleString('en-US', { 
+          timeZone: 'Asia/Ho_Chi_Minh',
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          second: 'numeric',
+          hour12: false
+        }),
+        score: parseInt(item.score),
+        icon: isAnalysis ? BarChart3 : Wand2,
+        color: isAnalysis ? '#10b981' : '#3b82f6',
+        id: item._id,
+        report_id: isAnalysis ? item.report_id : null,
+        new_resume_id: !isAnalysis ? item.new_resume_id : null
+      };
+    })
+    .sort((a, b) => new Date(b.time) - new Date(a.time))
+    .slice(0, showAllActivity ? undefined : 3); // Mặc định chỉ hiện 3 items, khi show all thì hiện tất cả
 
   const quickActions = [
     {
@@ -193,6 +389,7 @@ const CVisionDashboard = () => {
     formData.append('user_id', user.id);
 
     try {
+      setIsLoading(prev => ({ ...prev, [fileType]: true }));
       const endpoint = fileType === 'resume' ? `${API_CONFIG.USERDB.UPLOADRESUME}` : `${API_CONFIG.USERDB.UPLOADJD}`;
       const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
         method: 'POST',
@@ -211,10 +408,10 @@ const CVisionDashboard = () => {
         ...prev,
         [fileType]: true
       }));
-
-      alert(`${fileType.toUpperCase()} uploaded successfully!`);
     } catch (err) {
-      alert(`Error uploading ${fileType}: ${err.message}`);
+      console.error(`Error uploading ${fileType}:`, err);
+    } finally {
+      setIsLoading(prev => ({ ...prev, [fileType]: false }));
     }
   };
 
@@ -224,7 +421,7 @@ const CVisionDashboard = () => {
 
     try {
         const endpoint = fileType === 'resume' ? `${API_CONFIG.USERDB.DOWNLOADRESUME}` : `${API_CONFIG.USERDB.DOWNLOADJD}`;
-        const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}/${user.id}`, {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}${user.id}`, {
             method: 'GET',
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -255,8 +452,27 @@ const CVisionDashboard = () => {
     }
 };
 
+  if (!user) {
+    return <div>Loading...</div>; // Display loading state
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc, #e2e8f0)' }}>
+      <style>
+        {`
+          .hide-scrollbar {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+            overflow-y: scroll !important;
+          }
+          .hide-scrollbar::-webkit-scrollbar {
+            width: 0 !important;
+            height: 0 !important;
+            background: transparent !important;
+            display: none !important;
+          }
+        `}
+      </style>
       {/* Header */}
       <header style={{ 
         background: 'white', 
@@ -278,66 +494,178 @@ const CVisionDashboard = () => {
           }}>
             <div style={{ 
               display: 'flex', 
-              alignItems: 'center', 
+              alignItems: 'center',
               gap: '12px'
             }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+              <div 
+                style={{
+                  width: '40px',
+                  height: '40px', 
+                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer' // Add pointer cursor
+                }}
+                onClick={() => navigate('/')} // Navigate to home
+              >
                 <span style={{ color: 'white', fontWeight: 'bold' }}>CV</span>
               </div>
               <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>
             
+            <nav style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '32px',
+              userSelect: 'none' // Disable text selection
+            }}>
+              <a href="/" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Home</a>
+              <a href="/mock-interview" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Mock Interview</a>
+              <a href="/resume-analysis/step1" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Resume Analysis</a>
+              <a href="/improve-resume/step1" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Improve Resume</a>
+            </nav>
+
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '16px'
+              gap: '16px',
+              position: 'relative' // Added for dropdown positioning
             }}>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '12px'
-              }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <User size={20} style={{ color: 'white' }} />
-                </div>
-                <div>
-                  <p style={{ fontWeight: '600', color: '#111827', margin: 0 }}>{user.full_name}</p>
-                  <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>Premium Member</p>
-                </div>
-              </div>
-              
-              <button 
-                onClick={() => {
-                  localStorage.clear();
-                  navigate('/signin');
-                }}
-                style={{
-                  color: '#6b7280',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: '500',
-                  padding: '8px 16px'
-                }}
-              >
-                Sign Out
-              </button>
+              {user ? (
+                <>
+                  <div 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      padding: '8px 12px', 
+                      border: '1px solid #e5e7eb', 
+                      borderRadius: '12px', 
+                      cursor: 'pointer', 
+                      transition: 'background-color 0.2s ease',
+                      userSelect: 'none',
+                      boxShadow: dropdownVisible ? '0 2px 4px rgba(0, 0, 0, 0.1)' : 'none'
+                    }}
+                    onClick={() => setDropdownVisible(!dropdownVisible)}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    ref={(el) => {
+                      if (el && dropdownVisible) {
+                        const dropdown = document.getElementById('dropdown-menu');
+                        if (dropdown) {
+                          dropdown.style.width = `${el.offsetWidth}px`; // Dynamically set dropdown width
+                        }
+                      }
+                    }}
+                  >
+                    <span style={{ color: '#374151', fontWeight: '500' }}>
+                      Welcome, {user.full_name || 'User'}
+                    </span>
+                    <ChevronDown size={16} color="#374151" />
+                  </div>
+                  {dropdownVisible && (
+                    <div
+                      id="dropdown-menu"
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        background: 'white',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        zIndex: 100,
+                        animation: 'fadeIn 0.2s ease-in-out'
+                      }}
+                    >
+                      <button 
+                        onClick={() => {
+                          navigate('/dashboard');
+                          setDropdownVisible(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Dashboard
+                      </button>
+                      <hr style={{ margin: 0, border: 'none', borderTop: '1px solid #e5e7eb' }} />
+                      <button 
+                        onClick={() => {
+                          localStorage.clear();
+                          setUser(null);
+                          navigate('/signin');
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Log Out
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => navigate('/signin', { state: { from: '/' } })}
+                    style={{ 
+                      color: '#374151', 
+                      fontWeight: '500',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={() => navigate('/signup')}
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -355,7 +683,8 @@ const CVisionDashboard = () => {
             backgroundClip: 'text',
             color: 'transparent'
           }}>
-            {dashboardData.message} 👋
+            Welcome to your dashboard,<br />
+            {user.full_name} 👋
           </h1>
           <p style={{ 
             color: '#6b7280', 
@@ -369,100 +698,71 @@ const CVisionDashboard = () => {
           {/* File Upload Sections */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gridTemplateColumns: viewResume ? '1fr 2fr' : 'repeat(auto-fit, minmax(300px, 1fr))',
             gap: '24px',
             marginBottom: '24px'
           }}>
-            {/* Resume Upload Section */}
             <div style={{
-              background: 'white',
-              padding: '24px',
-              borderRadius: '16px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              border: '2px dashed #e5e7eb'
+              display: 'flex',
+              flexDirection: viewResume ? 'column' : 'row',
+              gap: '24px'
             }}>
+              {/* Resume Upload Section */}
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                marginBottom: '16px'
+                background: 'white',
+                padding: '24px',
+                borderRadius: '16px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                border: '2px dashed #e5e7eb',
+                flex: viewResume ? 'none' : '1'
               }}>
                 <div style={{
-                  width: '40px',
-                  height: '40px',
-                  background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
-                  borderRadius: '12px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  gap: '12px',
+                  marginBottom: '16px'
                 }}>
-                  <FileText size={20} style={{ color: 'white' }} />
-                </div>
-                <h3 style={{
-                  fontSize: '18px',
-                  fontWeight: 'bold',
-                  color: '#111827',
-                  margin: 0
-                }}>
-                  Your Resume
-                </h3>
-              </div>
-
-              {!uploadStatus.resume ? (
-                <div>
-                  <p style={{
-                    color: '#6b7280',
-                    fontSize: '14px',
-                    marginBottom: '16px',
-                    margin: '0 0 16px 0'
-                  }}>
-                    Upload your resume to get AI-powered improvements and analysis
-                  </p>
-                  <input
-                    type="file"
-                    accept=".pdf,.docx"
-                    onChange={(e) => {
-                      if (e.target.files[0]) {
-                        handleFileUpload('resume', e.target.files[0]);
-                      }
-                    }}
-                    style={{ display: 'none' }}
-                    id="resume-upload"
-                  />
-                  <label
-                    htmlFor="resume-upload"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '12px 20px',
-                      background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
-                      color: 'white',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontWeight: '500',
-                      justifyContent: 'center',
-                      border: 'none'
-                    }}
-                  >
-                    <Upload size={16} />
-                    Upload Resume
-                  </label>
-                </div>
-              ) : (
-                <div>
-                  <p style={{
-                    color: '#10b981',
-                    fontSize: '14px',
-                    marginBottom: '16px',
-                    margin: '0 0 16px 0'
-                  }}>
-                    ✓ Resume uploaded successfully
-                  </p>
                   <div style={{
+                    width: '40px',
+                    height: '40px',
+                    background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
+                    borderRadius: '12px',
                     display: 'flex',
-                    gap: '8px'
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    animation: isLoading.resume ? 'pulse 1.5s infinite' : 'none'
                   }}>
+                    <FileText size={20} style={{ color: 'white' }} />
+                  </div>
+                  <style>
+                    {`
+                      @keyframes pulse {
+                        0% { opacity: 1; }
+                        50% { opacity: 0.5; }
+                        100% { opacity: 1; }
+                      }
+                    `}
+                  </style>
+                  <h3 style={{
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                    color: '#111827',
+                    margin: 0
+                  }}>
+                    Your Resume
+                  </h3>
+                </div>
+
+                {!uploadStatus.resume ? (
+                  <div>
+                    <p style={{
+                      color: '#6b7280',
+                      fontSize: '14px',
+                      marginBottom: '16px',
+                      margin: '0 0 16px 0'
+                    }}>
+                      Upload your resume to get AI-powered improvements and analysis
+                    </p>
                     <input
                       type="file"
                       accept=".pdf,.docx"
@@ -472,190 +772,331 @@ const CVisionDashboard = () => {
                         }
                       }}
                       style={{ display: 'none' }}
-                      id="resume-edit"
+                      id="resume-upload"
                     />
                     <label
-                      htmlFor="resume-edit"
+                      htmlFor="resume-upload"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
-                        padding: '8px 16px',
-                        background: '#f3f4f6',
-                        color: '#374151',
-                        borderRadius: '6px',
+                        padding: '12px 20px',
+                        background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
+                        color: 'white',
+                        borderRadius: '8px',
                         cursor: 'pointer',
-                        fontSize: '14px',
-                        border: 'none'
+                        fontWeight: '500',
+                        justifyContent: 'center',
+                        border: 'none',
                       }}
                     >
-                      <Edit size={14} />
-                      Edit
+                      <Upload size={16} />
+                      Upload Resume
                     </label>
-                    <button
-                      onClick={() => handleFileDownload('resume')}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 16px',
-                        background: '#f3f4f6',
-                        color: '#374151',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        border: 'none'
-                      }}
-                    >
-                      <Download size={14} />
-                      Download
-                    </button>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Job Description Upload Section */}
-            <div style={{
-              background: 'white',
-              padding: '24px',
-              borderRadius: '16px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              border: '2px dashed #e5e7eb'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                marginBottom: '16px'
-              }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <File size={20} style={{ color: 'white' }} />
-                </div>
-                <h3 style={{
-                  fontSize: '18px',
-                  fontWeight: 'bold',
-                  color: '#111827',
-                  margin: 0
-                }}>
-                  Job Description
-                </h3>
+                ) : (
+                  <div>
+                    <p style={{
+                      color: '#10b981',
+                      fontSize: '14px',
+                      marginBottom: '16px',
+                      margin: '0 0 16px 0'
+                    }}>
+                      ✓ Resume uploaded successfully
+                    </p>
+                    <div style={{
+                      display: 'flex',
+                      gap: '8px'
+                    }}>
+                      <input
+                        type="file"
+                        accept=".pdf,.docx"
+                        onChange={(e) => {
+                          if (e.target.files[0]) {
+                            handleFileUpload('resume', e.target.files[0]);
+                          }
+                        }}
+                        style={{ display: 'none' }}
+                        id="resume-edit"
+                      />
+                      <label
+                        htmlFor="resume-edit"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 16px',
+                          background: '#f3f4f6',
+                          color: '#374151',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          border: 'none'
+                        }}
+                      >
+                        <Edit size={14} />
+                        Edit
+                      </label>
+                      <button
+                        onClick={() => handleFileDownload('resume')}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 16px',
+                          background: '#f3f4f6',
+                          color: '#374151',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          border: 'none'
+                        }}
+                      >
+                        <Download size={14} />
+                        Download
+                      </button>
+                      <button
+                        onClick={fetchResume}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 16px',
+                          background: '#3b82f6',
+                          color: 'white',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          border: 'none',
+                        }}
+                      >
+                        View Resume
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {!uploadStatus.jd ? (
-                <div>
-                  <p style={{
-                    color: '#6b7280',
-                    fontSize: '14px',
-                    marginBottom: '16px',
-                    margin: '0 0 16px 0'
-                  }}>
-                    Upload a job description to get targeted resume improvements
-                  </p>
-                  <input
-                    type="file"
-                    accept=".pdf,.docx"
-                    onChange={(e) => {
-                      if (e.target.files[0]) {
-                        handleFileUpload('jd', e.target.files[0]);
-                      }
-                    }}
-                    style={{ display: 'none' }}
-                    id="jd-upload"
-                  />
-                  <label
-                    htmlFor="jd-upload"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '12px 20px',
-                      background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-                      color: 'white',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontWeight: '500',
-                      justifyContent: 'center',
-                      border: 'none'
-                    }}
-                  >
-                    <Upload size={16} />
-                    Upload JD
-                  </label>
-                </div>
-              ) : (
-                <div>
-                  <p style={{
-                    color: '#10b981',
-                    fontSize: '14px',
-                    marginBottom: '16px',
-                    margin: '0 0 16px 0'
-                  }}>
-                    ✓ Job description uploaded successfully
-                  </p>
+              {/* Job Description Upload Section */}
+              <div style={{
+                background: 'white',
+                padding: '24px',
+                borderRadius: '16px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                border: '2px dashed #e5e7eb',
+                flex: viewResume ? 'none' : '1'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  marginBottom: '16px'
+                }}>
                   <div style={{
+                    width: '40px',
+                    height: '40px',
+                    background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                    borderRadius: '12px',
                     display: 'flex',
-                    gap: '8px'
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    animation: isLoading.jd ? 'pulse 1.5s infinite' : 'none'
                   }}>
-                    <input
-                      type="file"
-                      accept=".pdf,.docx"
-                      onChange={(e) => {
-                        if (e.target.files[0]) {
-                          handleFileUpload('jd', e.target.files[0]);
+                    <File size={20} style={{ color: 'white' }} />
+                  </div>
+                  <h3 style={{
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                    color: '#111827',
+                    margin: 0
+                  }}>
+                    Job Description
+                  </h3>
+                </div>
+
+                {!uploadStatus.jd ? (
+                  <div>
+                    <p style={{
+                      color: '#6b7280',
+                      fontSize: '14px',
+                      marginBottom: '16px',
+                      margin: '0 0 16px 0'
+                    }}>
+                      Enter a job description to get targeted resume improvements
+                    </p>
+                    {editJD && (
+                      <textarea
+                        rows="4"
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: '1px solid #e5e7eb',
+                          marginBottom: '16px'
+                        }}
+                        value={jobDescription}
+                        onChange={(e) => setJobDescription(e.target.value)}
+                      />
+                    )}
+                    <button
+                      onClick={() => {
+                        if (editJD) {
+                          handleJDSubmit();
+                        } else {
+                          setEditJD(true);
                         }
                       }}
-                      style={{ display: 'none' }}
-                      id="jd-edit"
-                    />
-                    <label
-                      htmlFor="jd-edit"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '8px',
-                        padding: '8px 16px',
-                        background: '#f3f4f6',
-                        color: '#374151',
-                        borderRadius: '6px',
+                        padding: '12px 20px',
+                        height: '48px',
+                        background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
+                        color: 'white',
+                        borderRadius: '12px',
                         cursor: 'pointer',
-                        fontSize: '14px',
-                        border: 'none'
+                        fontWeight: '550',
+                        border: 'none',
+                        width: '100%',
+                        fontSize: '15px'
                       }}
                     >
-                      <Edit size={14} />
-                      Edit
-                    </label>
-                    <button
-                      onClick={() => handleFileDownload('jd')}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 16px',
-                        background: '#f3f4f6',
-                        color: '#374151',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        border: 'none'
-                      }}
-                    >
-                      <Download size={14} />
-                      Download
+                      <Edit size={16} />
+                      {'Edit Job Description'}
                     </button>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div>
+                    <p style={{
+                      color: '#10b981',
+                      fontSize: '14px',
+                      marginBottom: '16px',
+                      margin: '0 0 16px 0'
+                    }}>
+                      ✓ Job description submitted successfully
+                    </p>
+                    {editJD ? (
+                      <div style={{ marginBottom: '16px' }}>
+                        <textarea
+                          rows="4"
+                          style={{
+                            width: '100%',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            border: '1px solid #e5e7eb',
+                            marginBottom: '16px'
+                          }}
+                          value={jobDescription}
+                          onChange={(e) => setJobDescription(e.target.value)}
+                        />
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={handleJDSubmit}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          padding: '12px 20px',
+                          height: '48px',
+                          background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
+                          color: 'white',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '16px',
+                          border: 'none',
+                          width: '100%'
+                        }}
+                          >
+                            Save Changes
+                          </button>
+                          <button
+                            onClick={() => setEditJD(false)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '8px 16px',
+                              background: '#f3f4f6',
+                              color: '#374151',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              border: 'none'
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setEditJD(true)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          padding: '12px 20px',
+                          height: '48px',
+                          background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
+                          color: 'white',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '16px',
+                          border: 'none',
+                          width: '100%'
+                        }}
+                      >
+                        <Edit size={20} />
+                        Edit Job Description
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Resume Viewer Section */}
+            {viewResume && (
+              <div
+                style={{
+                  background: 'white',
+                  padding: '24px',
+                  borderRadius: '16px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                  gridColumn: '2 / span 1',
+                  transition: 'all 0.3s ease-in-out', // Add transition effect
+                  transform: viewResume ? 'scale(1)' : 'scale(0.95)', // Scale effect
+                  opacity: viewResume ? 1 : 0, // Fade effect
+                }}
+              >
+                <div
+                  style={{
+                    width: '100%',
+                    height: '500px',
+                    overflow: 'hidden',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                  }}
+                >
+                  <iframe
+                    src={`data:${resumeContent.content_type};base64,${resumeContent.file_content}#toolbar=0`}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      border: '0.5px solid #000',
+                      overflow: 'auto',
+                    }}
+                    title="Resume Viewer"
+                  ></iframe>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -831,35 +1272,76 @@ const CVisionDashboard = () => {
                 }}>
                   📈 Recent Activity
                 </h2>
-                <button style={{
-                  color: '#3b82f6',
-                  background: 'none',
-                  border: 'none',
-                  fontWeight: '500',
-                  cursor: 'pointer'
-                }}>
-                  View All
+                <button 
+                  onClick={() => setShowAllActivity(!showAllActivity)}
+                  style={{
+                    color: '#3b82f6',
+                    background: 'none',
+                    border: 'none',
+                    fontWeight: '500',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {showAllActivity ? 'Show Less' : 'View All'}
                 </button>
               </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {recentActivity.map((activity, index) => (
-                  <div key={index} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
+              <div 
+                className="hide-scrollbar"
+                style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '16px',
+                   maxHeight: showAllActivity ? '400px' : '320px', // Chiều cao cho 3 items (mỗi item 100px + gap 16px)
+                  overflowY: 'auto',
+                  paddingRight: '8px'
+                }}>
+                {isHistoryLoading ? (
+                  <div style={{
                     padding: '20px',
-                    background: '#f8fafc',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#f1f5f9'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = '#f8fafc'
+                    textAlign: 'center',
+                    color: '#6b7280'
                   }}>
+                    Loading activity history...
+                  </div>
+                ) : recentActivity.length === 0 ? (
+                  <div style={{
+                    padding: '20px',
+                    textAlign: 'center',
+                    color: '#6b7280'
+                  }}>
+                    No activity history yet
+                  </div>
+                ) : recentActivity.map((activity, index) => (
+                  <div 
+                    key={index} 
+                    onClick={() => {
+                      // Nếu là analysis, tải report, nếu là improvement, tải resume
+                      const fileId = activity.type === 'analysis' ? activity.report_id : activity.new_resume_id;
+                      downloadHistoryFile(fileId, activity);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '16px',
+                      padding: '20px',
+                      background: '#f8fafc',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      opacity: 1
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = '#f1f5f9';
+                      // Show tooltip
+                      const tooltip = e.target.querySelector('div[style*="position: absolute"]');
+                      if (tooltip) tooltip.style.opacity = '1';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = '#f8fafc';
+                      // Hide tooltip
+                      const tooltip = e.target.querySelector('div[style*="position: absolute"]');
+                      if (tooltip) tooltip.style.opacity = '0';
+                    }}>
                     <div style={{
                       width: '40px',
                       height: '40px',
@@ -874,14 +1356,46 @@ const CVisionDashboard = () => {
                     </div>
                     
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={{ 
-                        fontWeight: '600', 
-                        color: '#111827',
-                        margin: '0 0 4px 0',
-                        fontSize: '16px'
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '8px',
+                        position: 'relative'
                       }}>
-                        {activity.title}
-                      </h3>
+                        <h3 style={{ 
+                          fontWeight: '600', 
+                          color: '#111827',
+                          margin: '0 0 4px 0',
+                          fontSize: '16px'
+                        }}>
+                          {activity.title}
+                        </h3>
+                        <FileDown 
+                          size={16} 
+                          style={{ 
+                            color: '#6b7280',
+                            opacity: 0.8
+                          }}
+                        />
+                        {/* Tooltip */}
+                        <div style={{
+                          position: 'absolute',
+                          top: '-30px',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          background: '#374151',
+                          color: 'white',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          opacity: 0,
+                          transition: 'opacity 0.2s ease',
+                          pointerEvents: 'none',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          Click to download {activity.type === 'analysis' ? 'report' : 'resume'}
+                        </div>
+                      </div>
                       <div style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
@@ -915,104 +1429,6 @@ const CVisionDashboard = () => {
 
           {/* Sidebar */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* Progress Card */}
-            <div style={{
-              background: 'white',
-              padding: '24px',
-              borderRadius: '16px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-            }}>
-              <h3 style={{ 
-                fontSize: '20px', 
-                fontWeight: 'bold', 
-                color: '#111827', 
-                marginBottom: '20px',
-                margin: '0 0 20px 0'
-              }}>
-                🎯 Your Progress
-              </h3>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    fontSize: '14px', 
-                    marginBottom: '8px'
-                  }}>
-                    <span style={{ color: '#6b7280' }}>Profile Completion</span>
-                    <span style={{ fontWeight: '600', color: '#111827' }}>85%</span>
-                  </div>
-                  <div style={{
-                    width: '100%',
-                    background: '#e5e7eb',
-                    borderRadius: '8px',
-                    height: '8px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                      height: '100%',
-                      width: '85%',
-                      borderRadius: '8px'
-                    }}></div>
-                  </div>
-                </div>
-                
-                <div>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    fontSize: '14px', 
-                    marginBottom: '8px'
-                  }}>
-                    <span style={{ color: '#6b7280' }}>Interview Skills</span>
-                    <span style={{ fontWeight: '600', color: '#111827' }}>92%</span>
-                  </div>
-                  <div style={{
-                    width: '100%',
-                    background: '#e5e7eb',
-                    borderRadius: '8px',
-                    height: '8px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      background: 'linear-gradient(135deg, #10b981, #059669)',
-                      height: '100%',
-                      width: '92%',
-                      borderRadius: '8px'
-                    }}></div>
-                  </div>
-                </div>
-                
-                <div>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    fontSize: '14px', 
-                    marginBottom: '8px'
-                  }}>
-                    <span style={{ color: '#6b7280' }}>Resume Quality</span>
-                    <span style={{ fontWeight: '600', color: '#111827' }}>88%</span>
-                  </div>
-                  <div style={{
-                    width: '100%',
-                    background: '#e5e7eb',
-                    borderRadius: '8px',
-                    height: '8px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
-                      height: '100%',
-                      width: '88%',
-                      borderRadius: '8px'
-                    }}></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Achievements */}
             <div style={{
               background: 'white',
@@ -1086,7 +1502,17 @@ const CVisionDashboard = () => {
                       margin: 0,
                       lineHeight: '1.3'
                     }}>
-                      Enhanced 5 resumes this month
+                      {(() => {
+                        const now = new Date();
+                        const thisMonthActivities = userHistory.analysis_results.concat(userHistory.improvement_results)
+                          .filter(item => {
+                            const itemDate = new Date(item.created_at);
+                            return itemDate.getMonth() === now.getMonth() && 
+                                   itemDate.getFullYear() === now.getFullYear();
+                          });
+                        const highScoreActivities = thisMonthActivities.filter(item => parseInt(item.score) >= 90).length;
+                        return `${highScoreActivities} resumes received 90%+ score this month`;
+                      })()}
                     </p>
                   </div>
                 </div>
@@ -1116,107 +1542,34 @@ const CVisionDashboard = () => {
                       margin: 0,
                       lineHeight: '1.3'
                     }}>
-                      7 days of consistent practice
+                      {(() => {
+                        // Kết hợp và sắp xếp tất cả hoạt động theo thời gian
+                        const allActivities = userHistory.analysis_results.concat(userHistory.improvement_results)
+                          .map(item => new Date(item.created_at).toISOString().split('T')[0]) // Lấy ngày
+                          .sort((a, b) => new Date(b) - new Date(a)); // Sắp xếp giảm dần
+
+                        if (allActivities.length === 0) return '0 days of consistent practice';
+
+                        let streakCount = 1;
+                        let currentDate = new Date(allActivities[0]);
+                        
+                        // Tính số ngày liên tiếp
+                        for (let i = 1; i < allActivities.length; i++) {
+                          const prevDate = new Date(allActivities[i]);
+                          const diffDays = Math.floor((currentDate - prevDate) / (1000 * 60 * 60 * 24));
+                          
+                          if (diffDays === 1) {
+                            streakCount++;
+                            currentDate = prevDate;
+                          } else {
+                            break;
+                          }
+                        }
+
+                        return `${streakCount} days of consistent practice`;
+                      })()}
                     </p>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Recommendations */}
-            <div style={{
-              background: 'white',
-              padding: '24px',
-              borderRadius: '16px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-            }}>
-              <h3 style={{ 
-                fontSize: '20px', 
-                fontWeight: 'bold', 
-                color: '#111827', 
-                marginBottom: '20px',
-                margin: '0 0 20px 0'
-              }}>
-                💡 Recommendations
-              </h3>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{
-                  padding: '16px',
-                  background: '#dbeafe',
-                  borderRadius: '12px',
-                  border: '1px solid #3b82f6'
-                }}>
-                  <h4 style={{ 
-                    fontWeight: '600', 
-                    color: '#1e3a8a', 
-                    marginBottom: '8px',
-                    margin: '0 0 8px 0',
-                    fontSize: '16px'
-                  }}>
-                    Practice Technical Questions
-                  </h4>
-                  <p style={{ 
-                    color: '#1e40af', 
-                    fontSize: '14px', 
-                    marginBottom: '12px',
-                    margin: '0 0 12px 0',
-                    lineHeight: '1.4'
-                  }}>
-                    Your last mock interview showed room for improvement in technical areas.
-                  </p>
-                  <button 
-                    onClick={() => navigate('/mock-interview')}
-                    style={{
-                      color: '#3b82f6',
-                      background: 'none',
-                      border: 'none',
-                      fontWeight: '500',
-                      fontSize: '14px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Start Practice →
-                  </button>
-                </div>
-                
-                <div style={{
-                  padding: '16px',
-                  background: '#ede9fe',
-                  borderRadius: '12px',
-                  border: '1px solid #8b5cf6'
-                }}>
-                  <h4 style={{ 
-                    fontWeight: '600', 
-                    color: '#581c87', 
-                    marginBottom: '8px',
-                    margin: '0 0 8px 0',
-                    fontSize: '16px'
-                  }}>
-                    Update Your Resume
-                  </h4>
-                  <p style={{ 
-                    color: '#7c3aed', 
-                    fontSize: '14px', 
-                    marginBottom: '12px',
-                    margin: '0 0 12px 0',
-                    lineHeight: '1.4'
-                  }}>
-                    Add your recent AWS certification to boost your profile.
-                  </p>
-                  <button 
-                    onClick={() => navigate('/improve-resume/step1')}
-                    style={{
-                      color: '#8b5cf6',
-                      background: 'none',
-                      border: 'none',
-                      fontWeight: '500',
-                      fontSize: '14px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Update Now →
-                  </button>
                 </div>
               </div>
             </div>
@@ -1226,5 +1579,6 @@ const CVisionDashboard = () => {
     </div>
   )
 }
+
 
 export default CVisionDashboard
