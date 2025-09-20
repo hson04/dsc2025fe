@@ -23,6 +23,7 @@ const MockInterview = () => {
   // Interview preparation state
   const [isInterviewReady, setIsInterviewReady] = useState(false)
   const [preparationError, setPreparationError] = useState(null)
+  const [isNewSession, setIsNewSession] = useState(false) // Track if this is a new session
 
   // Interview preparation handlers
   const handleInterviewReady = (status) => {
@@ -97,6 +98,22 @@ const MockInterview = () => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
+
+  // Determine if this is a new session or refresh
+  useEffect(() => {
+    const existingSessionId = localStorage.getItem('currentSessionId')
+    const hasExistingMessages = localStorage.getItem(`messages_${roomId}`)
+    
+    if (existingSessionId && hasExistingMessages) {
+      // This is a refresh - don't show preparation
+      setIsNewSession(false)
+      setIsInterviewReady(true) // Skip preparation for refresh
+    } else {
+      // This is a new session - show preparation
+      setIsNewSession(true)
+      setIsInterviewReady(false) // Show preparation for new session
+    }
+  }, [roomId])
 
   // Navigate to home page
   const goToHome = () => {
@@ -297,6 +314,10 @@ const MockInterview = () => {
         }
       ])
       
+      // Mark as new session and show preparation
+      setIsNewSession(true)
+      setIsInterviewReady(false)
+      
       // Refresh recent interviews
       fetchRecentInterviews()
     }
@@ -384,8 +405,8 @@ const MockInterview = () => {
     }
   }
 
-  // Show interview preparation if not ready
-  if (!isInterviewReady) {
+  // Show interview preparation only for new sessions
+  if (!isInterviewReady && isNewSession) {
     return (
       <div style={{
         minHeight: '100vh',
@@ -950,7 +971,7 @@ const MockInterview = () => {
                   
                   {/* Show Start Interview button in bot messages that contain interview plan */}
                   {message.type === 'bot' && 
-                   message.message.includes('đồng ý')  && (
+                   message.message.includes('ế hoạch phỏng vấn')  && (
                     <div style={{ marginTop: '12px' }}>
                       <button
                         onClick={() => sendMessage('Start')}
@@ -973,7 +994,31 @@ const MockInterview = () => {
                       </button>
                     </div>
                   )}
-                  
+                  {/* Show Start Interview button in bot messages that contain interview plan */}
+                  {message.type === 'bot' && 
+                   message.message.includes('ĐÁNH GIÁ CUỐI BUỔI')  && (
+                    <div style={{ marginTop: '12px' }}>
+                      <button
+                        onClick={downloadInterviewReport}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          background: 'linear-gradient(135deg,rgb(87, 152, 250),rgb(183, 221, 254))',
+                          color: 'white',
+                          fontWeight: '600',
+                          fontSize: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        🚀 View Report
+                      </button>
+                    </div>
+                  )}
                   <p style={{ 
                     fontSize: '12px', 
                     marginTop: '8px',
