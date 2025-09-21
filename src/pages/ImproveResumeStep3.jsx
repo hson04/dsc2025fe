@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Download, CheckCircle, TrendingUp, Target, Award, ArrowLeft, BarChart3 } from 'lucide-react'
+import { Download, CheckCircle, TrendingUp, Target, Award, ArrowLeft, BarChart3, ChevronDown } from 'lucide-react'
 import API_CONFIG from '../config/api'
 
 const ImproveResumeStep3 = () => {
@@ -36,9 +36,21 @@ const ImproveResumeStep3 = () => {
   
   // ✅ State to track if any loading is in progress
   const [isAnyProcessRunning, setIsAnyProcessRunning] = useState(false)
+
+  // Add user states
+  const [user, setUser] = useState(null)
+  const [dropdownVisible, setDropdownVisible] = useState(false)
   
   const navigate = useNavigate()
   const location = useLocation()
+
+  // Add user effect
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
 
   // ✅ Effect to track loading states and prevent F5 reload
   useEffect(() => {
@@ -609,7 +621,7 @@ const ImproveResumeStep3 = () => {
       evaluateFormData.append('job_data', parsedAnalysisResults.job_data ? JSON.stringify(parsedAnalysisResults.job_data) : '{}')
       evaluateFormData.append('job_data_v2', parsedAnalysisResults.job_data_v2 ? JSON.stringify(parsedAnalysisResults.job_data_v2) : '{}')
       
-      const evaluateResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CALCULATE_ALIGNMENT_SCORE}`, {
+      const evaluateResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.CALCULATE_ALIGNMENT_SCORE}`, {
         method: 'POST',
         body: evaluateFormData
       })
@@ -871,7 +883,7 @@ const ImproveResumeStep3 = () => {
         // ✅ Execute both API calls in parallel
         const [contentPreservationResponse, resumeImprovementsResponse] = await Promise.allSettled([
           // Content Preservation API call
-          fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CALCULATE_CONTENT_PRESERVATION}`, {
+          fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.CALCULATE_CONTENT_PRESERVATION}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -883,7 +895,7 @@ const ImproveResumeStep3 = () => {
           }),
           
           // Resume Improvements API call
-          fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ANALYZE_RESUME_IMPROVEMENTS}`, {
+          fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.ANALYZE_RESUME_IMPROVEMENTS}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1110,21 +1122,39 @@ const ImproveResumeStep3 = () => {
     }
   }, []); // Run only on mount
 
-  // ✅ Effect to clear stale location state on F5
+  // ✅ Effect to validate navigation flow and redirect if needed
   useEffect(() => {
-    // Check if we have data but also have location state (likely F5 case)
-    const pdfUrl = sessionStorage.getItem('generatedResumePDF')
-    const resumeData = sessionStorage.getItem('generatedResume')
-    const hasData = pdfUrl || resumeData
-    const step3DataProcessed = sessionStorage.getItem('step3DataProcessed')
+    // Check required data from previous steps
+    const analysisResults = sessionStorage.getItem('analysisResults');
+    const step2FormData = sessionStorage.getItem('step2FormData');
+    const pdfUrl = sessionStorage.getItem('generatedResumePDF');
+    const resumeData = sessionStorage.getItem('generatedResume');
+    const step3DataProcessed = sessionStorage.getItem('step3DataProcessed');
     
-    // If we have data AND step3DataProcessed flag, this is F5 with stale location state
-    if (hasData && step3DataProcessed && location.state) {
+    // Validate proper flow: must have both step1 and step2 data
+    const hasStep1Data = analysisResults;
+    const hasStep2Data = step2FormData;
+    const hasGeneratedData = pdfUrl || resumeData;
+    
+    // If missing data from either step, redirect to appropriate step
+    if (!hasStep1Data) {
+      console.log('Missing step 1 data - redirecting to step 1');
+      navigate('/improve-resume/step1');
+      return;
+    }
+    
+    if (!hasStep2Data && !hasGeneratedData) {
+      console.log('Missing step 2 data - redirecting to step 2');
+      navigate('/improve-resume/step2');
+      return;
+    }
+
+    // Handle F5 case
+    if (hasGeneratedData && step3DataProcessed && location.state) {
       console.log('F5 detected with stale location state - clearing it');
-      // Clear the stale location state
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []) // Run only once on mount
+  }, [navigate])
 
   // ✅ Effect to trigger missing calculations after F5
   useEffect(() => {
@@ -1267,11 +1297,45 @@ const ImproveResumeStep3 = () => {
             const byteArray = new Uint8Array(byteNumbers)
             const blob = new Blob([byteArray], { type: 'application/pdf' })
             
-            // Create both blob URL and base64 backup
-            const url = window.URL.createObjectURL(blob)
-            sessionStorage.setItem('generatedResumePDF', url)
-            await saveBlobData(blob)
-            console.log('PDF URL and base64 backup created from generatedResume data')
+                    // Create both blob URL and base64 backup
+                    const url = window.URL.createObjectURL(blob)
+                    sessionStorage.setItem('generatedResumePDF', url)
+                    await saveBlobData(blob)
+                    console.log('PDF URL and base64 backup created from generatedResume data')
+
+                    // Save improvement results if user is logged in
+                    if (user) {
+                      try {
+                        const token = localStorage.getItem("access_token");
+                        if (token) {
+                          // Calculate total score from metrics
+                          const totalScore = metrics.overallImprovement.toString();
+
+                          // Create form data
+                          const formData = new FormData();
+                          formData.append('user_id', user.id);
+                          formData.append('score', totalScore);
+                          formData.append('resume', new File([blob], 'enhanced_resume.pdf', { type: 'application/pdf' }));
+
+                          // Save improvement result
+                          const saveResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.SAVEIMPROVEMENTRESULTS}`, {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            },
+                            body: formData
+                          });
+
+                          if (!saveResponse.ok) {
+                            console.error('Failed to save improvement result');
+                          } else {
+                            console.log('Improvement result saved successfully');
+                          }
+                        }
+                      } catch (saveError) {
+                        console.error('Error saving improvement result:', saveError);
+                      }
+                    }
           }
         } catch (error) {
           console.log('Could not create backup from generatedResume:', error)
@@ -1297,6 +1361,84 @@ const ImproveResumeStep3 = () => {
       setTimeout(checkAndSavePDFData, 1000)
     }
   }, [isGenerating])
+
+  // Add state to track if result has been saved
+  const [hasResultBeenSaved, setHasResultBeenSaved] = useState(false);
+
+  // Function to save improvement results
+  const saveImprovementResults = async (pdfBlob) => {
+    if (!user || hasResultBeenSaved) return;
+
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      // Calculate total score from metrics
+      const totalScore = metrics.overallImprovement.toString();
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('user_id', user.id);
+      formData.append('score', totalScore);
+      formData.append('resume', new File([pdfBlob], 'enhanced_resume.pdf', { type: 'application/pdf' }));
+
+      // Save improvement result
+      const saveResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.SAVEIMPROVEMENTRESULTS}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!saveResponse.ok) {
+        console.error('Failed to save improvement result');
+      } else {
+        console.log('Improvement result saved successfully');
+        setHasResultBeenSaved(true); // Mark as saved
+      }
+    } catch (saveError) {
+      console.error('Error saving improvement result:', saveError);
+    }
+  };
+
+  // Effect to save results when all data is ready
+  useEffect(() => {
+    const saveResults = async () => {
+      // Check if already saved or metrics not ready
+      if (hasResultBeenSaved || !metrics.overallImprovement || isEnhancedMetricsLoading || isResumeImprovementsLoading) {
+        return;
+      }
+
+      // Check if we have the PDF data
+      const pdfUrl = sessionStorage.getItem('generatedResumePDF');
+      const base64Data = sessionStorage.getItem('generatedResumePDFData');
+
+      if (!pdfUrl && !base64Data) {
+        return;
+      }
+
+      try {
+        let blob;
+        if (pdfUrl) {
+          const response = await fetch(pdfUrl);
+          blob = await response.blob();
+        } else {
+          const response = await fetch(base64Data);
+          blob = await response.blob();
+        }
+
+        await saveImprovementResults(blob);
+      } catch (error) {
+        console.error('Error preparing PDF for saving:', error);
+      }
+    };
+
+    // Only try to save if we haven't saved before
+    if (!hasResultBeenSaved) {
+      saveResults();
+    }
+  }, [hasResultBeenSaved, metrics.overallImprovement, isEnhancedMetricsLoading, isResumeImprovementsLoading]);
 
   // ✅ Main loading and data initialization effect
   useEffect(() => {
@@ -1785,17 +1927,20 @@ const ImproveResumeStep3 = () => {
               alignItems: 'center', 
               gap: '12px'
             }}>
-              <div style={{
-                width: '32px',
-                height: '32px', 
-                
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: 'white', fontWeight: 'bold', fontSize: '12px' }}>CV</span>
+              <div 
+                style={{
+                  width: '40px',
+                  height: '40px', 
+                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+                onClick={() => navigate('/')}
+              >
+                <span style={{ color: 'white', fontWeight: 'bold' }}>CV</span>
               </div>
               <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>
@@ -1814,34 +1959,142 @@ const ImproveResumeStep3 = () => {
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '16px'
+              gap: '16px',
+              position: 'relative'
             }}>
-              <button 
-                onClick={() => navigate('/signin')}
-                style={{ 
-                  color: '#374151', 
-                  fontWeight: '500',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                Sign In
-              </button>
-              <button 
-                onClick={() => navigate('/signup')}
-                style={{
-                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 20px',
-                  borderRadius: '6px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Sign Up
-              </button>
+              {user ? (
+                <>
+                  <div 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      padding: '8px 12px', 
+                      border: '1px solid #e5e7eb', 
+                      borderRadius: '12px', 
+                      cursor: 'pointer', 
+                      transition: 'background-color 0.2s ease',
+                      userSelect: 'none',
+                      boxShadow: dropdownVisible ? '0 2px 4px rgba(0, 0, 0, 0.1)' : 'none'
+                    }}
+                    onClick={() => setDropdownVisible(!dropdownVisible)}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    ref={(el) => {
+                      if (el && dropdownVisible) {
+                        const dropdown = document.getElementById('dropdown-menu');
+                        if (dropdown) {
+                          dropdown.style.width = `${el.offsetWidth}px`;
+                        }
+                      }
+                    }}
+                  >
+                    <span style={{ color: '#374151', fontWeight: '500' }}>
+                      Welcome, {user.full_name || 'User'}
+                    </span>
+                    <ChevronDown size={16} color="#374151" />
+                  </div>
+                  {dropdownVisible && (
+                    <div
+                      id="dropdown-menu"
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        background: 'white',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        zIndex: 100,
+                        animation: 'fadeIn 0.2s ease-in-out'
+                      }}
+                    >
+                      <button 
+                        onClick={() => {
+                          navigate('/dashboard');
+                          setDropdownVisible(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Dashboard
+                      </button>
+                      <hr style={{ margin: 0, border: 'none', borderTop: '1px solid #e5e7eb' }} />
+                      <button 
+                        onClick={() => {
+                          localStorage.clear();
+                          setUser(null);
+                          setDropdownVisible(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Log Out
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => navigate('/signin', { state: { from: '/improve-resume/step3' } })}
+                    style={{ 
+                      color: '#374151', 
+                      fontWeight: '500',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={() => navigate('/signup')}
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

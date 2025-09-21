@@ -1,16 +1,58 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Upload, FileText, Briefcase, ArrowRight, BarChart3, CheckCircle } from 'lucide-react'
+import { Upload, FileText, Briefcase, ArrowRight, BarChart3, CheckCircle, ChevronDown } from 'lucide-react'
 import axios from 'axios';
 import API_CONFIG from '../config/api'
 
 const ResumeAnalysisStep1 = () => {
-  const [jobDescription, setJobDescription] = useState('')
-  const [resumeFile, setResumeFile] = useState(null)
-  const [dragActive, setDragActive] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [loadingProgress, setLoadingProgress] = useState(0) // ✅ Add progress state
-  const navigate = useNavigate()
+  const [jobDescription, setJobDescription] = useState('');
+  const [resumeFile, setResumeFile] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [user, setUser] = useState(null); // Add user state for dropdown
+  const [dropdownVisible, setDropdownVisible] = useState(false); // Add dropdown visibility state
+  const [userFiles, setUserFiles] = useState({ resume_id: null, jd_text: null });
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      setUser(userData);
+      
+      // Fetch user files
+      const fetchUserFiles = async () => {
+        setIsLoadingFiles(true);
+        const token = localStorage.getItem("access_token");
+        try {
+          const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.USERFILES}${userData.id}`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch user files");
+          }
+
+          const data = await response.json();
+          setUserFiles({
+            resume_id: data.resume_id,
+            jd_text: data.jd_text
+          });
+        } catch (err) {
+          console.error("Error fetching user files:", err);
+        } finally {
+          setIsLoadingFiles(false);
+        }
+      };
+
+      fetchUserFiles();
+    }
+  }, []);
 
   // ✅ Effect to prevent F5 reload when submitting
   useEffect(() => {
@@ -141,6 +183,36 @@ const ResumeAnalysisStep1 = () => {
     }
   }
 
+  const handleUseExistingResume = async () => {
+    if (!userFiles.resume_id) return;
+    
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.DOWNLOADRESUME}${user.id}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch resume");
+      }
+
+      const blob = await response.blob();
+      const file = new File([blob], "your-resume.pdf", { type: "application/pdf" });
+      setResumeFile(file);
+    } catch (err) {
+      console.error("Error fetching resume:", err);
+    }
+  }
+
+  const handleUseExistingJD = () => {
+    if (userFiles.jd_text) {
+      setJobDescription(userFiles.jd_text);
+    }
+  }
+
   const handleDrag = (e) => {
     e.preventDefault()
     e.stopPropagation()
@@ -184,7 +256,7 @@ const ResumeAnalysisStep1 = () => {
           });
         }, 1000); // Longer interval (was 200ms, now 1000ms)
 
-        const response = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.EVALUATE_CV}`, formData, {
+        const response = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.EVALUATE_CV}`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
@@ -214,7 +286,7 @@ const ResumeAnalysisStep1 = () => {
             });
           }, 500); // Longer interval (was 150ms, now 500ms)
 
-          const reportResponse = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GENERATE_REPORT_PDF}`, {
+          const reportResponse = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.GENERATE_REPORT_PDF}`, {
             alignment_scores: response.data.alignment_scores,
             cv_comment: response.data.cv_comment,
             resume_data: response.data.resume_data,
@@ -244,17 +316,62 @@ const ResumeAnalysisStep1 = () => {
           reader.readAsDataURL(reportBlob);
           
           console.log('PDF report stored in sessionStorage');
+
+          // Save analysis result if user is logged in
+          if (user) {
+            try {
+              const token = localStorage.getItem("access_token");
+              if (token) {
+                // Calculate total score
+                const alignmentScores = response.data.alignment_scores;
+                let totalSatisfied = 0;
+                let totalRequirements = 0;
+
+                Object.values(alignmentScores).forEach(category => {
+                  totalSatisfied += category.satisfied_requirements.length;
+                  totalRequirements += category.satisfied_requirements.length + category.unsatisfied_requirements.length;
+                });
+
+                // Calculate score as percentage
+                const scorePercentage = Math.round((totalSatisfied / totalRequirements) * 100);
+                const score = scorePercentage.toString(); // Convert to string for FormData
+
+                // Create form data with the newly generated report
+                const formData = new FormData();
+                formData.append('user_id', user.id);
+                formData.append('score', score);
+                formData.append('report', new File([reportResponse.data], 'analysis_report.pdf', { type: 'application/pdf' }));
+
+                // Save analysis result
+                const saveResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.SAVEANALYSISRESULT}`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: formData
+                });
+
+                if (!saveResponse.ok) {
+                  console.error('Failed to save analysis result');
+                } else {
+                  console.log('Analysis result saved successfully');
+                }
+              }
+            } catch (saveError) {
+              console.error('Error saving analysis result:', saveError);
+            }
+          }
         } catch (reportError) {
           console.error('Error generating PDF report:', reportError);
           // Don't block the main flow if report generation fails
           setLoadingProgress(100); // ✅ Still set to 100% even if report fails
         }
-        
-        // ✅ Small delay to show 100% completion
-        setTimeout(() => {
-          // ✅ Navigate to Step 2 AFTER API completes successfully
-          navigate('/resume-analysis/step2', { state: { loading: false } });
-        }, 1000); // Longer delay to show completion (was 500ms, now 1000ms)
+
+          // ✅ Small delay to show 100% completion
+          setTimeout(() => {
+            // ✅ Navigate to Step 2 AFTER API completes successfully
+            navigate('/resume-analysis/step2', { state: { loading: false } });
+          }, 1000); // Longer delay to show completion (was 500ms, now 1000ms)
         
       } catch (error) {
         console.error('Error analyzing resume:', error);
@@ -480,8 +597,7 @@ const ResumeAnalysisStep1 = () => {
           `}
         </style>
       </div>
-    );
-  }
+    )}
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #eff6ff, #e0e7ff, #f3e8ff)' }}>
@@ -491,7 +607,7 @@ const ResumeAnalysisStep1 = () => {
         borderBottom: '1px solid #e5e7eb',
         position: 'sticky',
         top: 0,
-        zIndex: 10
+        zIndex: 50
       }}>
         <div style={{ 
           maxWidth: '1200px', 
@@ -509,24 +625,29 @@ const ResumeAnalysisStep1 = () => {
               alignItems: 'center', 
               gap: '12px'
             }}>
-              <div style={{
-                width: '32px',
-                height: '32px', 
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: 'white', fontWeight: 'bold', fontSize: '12px' }}>CV</span>
+              <div 
+                style={{
+                  width: '40px',
+                  height: '40px', 
+                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer' // Add pointer cursor
+                }}
+                onClick={() => navigate('/')} // Navigate to home
+              >
+                <span style={{ color: 'white', fontWeight: 'bold' }}>CV</span>
               </div>
-              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
+              <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>
             
             <nav style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '32px'
+              gap: '32px',
+              userSelect: 'none' // Disable text selection
             }}>
               <a href="/" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Home</a>
               <a href="/mock-interview" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Mock Interview</a>
@@ -537,35 +658,143 @@ const ResumeAnalysisStep1 = () => {
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '16px'
+              gap: '16px',
+              position: 'relative' // Added for dropdown positioning
             }}>
-              <button 
-                onClick={() => navigate('/signin')}
-                style={{ 
-                  color: '#374151', 
-                  fontWeight: '500',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '8px'
-                }}
-              >
-                Sign In
-              </button>
-              <button 
-                onClick={() => navigate('/signup')}
-                style={{
-                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 20px',
-                  borderRadius: '6px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Sign Up
-              </button>
+              {user ? (
+                <>
+                  <div 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      padding: '8px 12px', 
+                      border: '1px solid #e5e7eb', 
+                      borderRadius: '12px', 
+                      cursor: 'pointer', 
+                      transition: 'background-color 0.2s ease',
+                      userSelect: 'none',
+                      boxShadow: dropdownVisible ? '0 2px 4px rgba(0, 0, 0, 0.1)' : 'none'
+                    }}
+                    onClick={() => setDropdownVisible(!dropdownVisible)}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    ref={(el) => {
+                      if (el && dropdownVisible) {
+                        const dropdown = document.getElementById('dropdown-menu');
+                        if (dropdown) {
+                          dropdown.style.width = `${el.offsetWidth}px`; // Dynamically set dropdown width
+                        }
+                      }
+                    }}
+                  >
+                    <span style={{ color: '#374151', fontWeight: '500' }}>
+                      Welcome, {user.full_name || 'User'}
+                    </span>
+                    <ChevronDown size={16} color="#374151" />
+                  </div>
+                  {dropdownVisible && (
+                    <div
+                      id="dropdown-menu"
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        background: 'white',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        zIndex: 100,
+                        animation: 'fadeIn 0.2s ease-in-out'
+                      }}
+                    >
+                      <button 
+                        onClick={() => {
+                          navigate('/dashboard');
+                          setDropdownVisible(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Dashboard
+                      </button>
+                      <hr style={{ margin: 0, border: 'none', borderTop: '1px solid #e5e7eb' }} />
+                      <button 
+                        onClick={() => {
+                          localStorage.clear();
+                          setUser(null);
+                          // Removed navigation on logout
+                          setDropdownVisible(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Log Out
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => navigate('/signin', { state: { from: '/resume-analysis/step1' } })}
+                    style={{ 
+                      color: '#374151', 
+                      fontWeight: '500',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={() => navigate('/signup')}
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -682,9 +911,31 @@ We're looking for a Senior Software Engineer with expertise in:
                 alignItems: 'center',
                 marginTop: '8px'
               }}>
-                <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                  {jobDescription.length} characters
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <span style={{ fontSize: '14px', color: '#6b7280' }}>
+                    {jobDescription.length} characters
+                  </span>
+                  {user && userFiles.jd_text && !jobDescription && (
+                    <button
+                      onClick={handleUseExistingJD}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '6px 12px',
+                        background: '#dbeafe',
+                        color: '#3b82f6',
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      Use Your JD
+                    </button>
+                  )}
+                </div>
                 {jobDescription.length > 100 && (
                   <span style={{ 
                     fontSize: '14px', 
@@ -843,9 +1094,32 @@ We're looking for a Senior Software Engineer with expertise in:
                         />
                       </label>
                     </div>
-                    <p style={{ fontSize: '14px', color: '#6b7280' }}>
-                      Supports PDF, DOC, DOCX • Max 10MB
-                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <p style={{ fontSize: '14px', color: '#6b7280' }}>
+                        Supports PDF, DOC, DOCX • Max 10MB
+                      </p>
+                      {user && userFiles.resume_id && (
+                        <button
+                          onClick={handleUseExistingResume}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '12px 24px',
+                            background: '#dbeafe',
+                            color: '#3b82f6',
+                            borderRadius: '8px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            margin: '0 auto'
+                          }}
+                        >
+                          Use Your Uploaded Resume
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

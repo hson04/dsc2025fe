@@ -15,6 +15,7 @@ import SignIn from './pages/SignIn'
 import VerifyAccount from './pages/VerifyAccount'
 import EvaluationReport from './pages/EvaluationReport'
 import VirtualInterviewer from './pages/VirtualInterviewer'
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
@@ -23,8 +24,14 @@ function App() {
         <Routes>
           {/* CVision System Routes */}
           <Route path="/" element={<CVisionHome />} />
-          <Route path="/dashboard" element={<CVisionDashboard />} />
-          <Route path="/mock-interview" element={<MockInterview />} />
+          <Route 
+            path="/mock-interview" 
+            element={
+              <ProtectedRoute>
+                <MockInterview />
+              </ProtectedRoute>
+            } 
+          />
           <Route path="/improve-resume/step1" element={<ImproveResumeStep1 />} />
           <Route path="/improve-resume/step2" element={<ImproveResumeStep2 />} />
           <Route path="/improve-resume/step3" element={<ImproveResumeStep3 />} />
@@ -35,6 +42,14 @@ function App() {
           <Route path="/verify-account" element={<VerifyAccount />} />
           <Route path="/evaluation-report" element={<EvaluationReport />} />
           <Route path="/virtual-interviewer" element={<VirtualInterviewer />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <CVisionDashboard />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </main>
       {/* <Chatbot /> */}

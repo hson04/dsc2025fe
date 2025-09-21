@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Upload, FileText, Briefcase, ArrowRight, CheckCircle } from 'lucide-react'
+import { Upload, FileText, Briefcase, ArrowRight, CheckCircle, ChevronDown } from 'lucide-react'
 import axios from 'axios'
 import API_CONFIG from '../config/api'
-
 const ImproveResumeStep1 = () => {
   const [jobDescription, setJobDescription] = useState('')
   const [resumeFile, setResumeFile] = useState(null)
@@ -11,6 +10,10 @@ const ImproveResumeStep1 = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0) // ✅ Add progress state
   const [error, setError] = useState(null)
+  const [user, setUser] = useState(null) // Add user state for dropdown
+  const [dropdownVisible, setDropdownVisible] = useState(false) // Add dropdown visibility state
+  const [userFiles, setUserFiles] = useState({ resume_id: null, jd_text: null })
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -36,6 +39,44 @@ const ImproveResumeStep1 = () => {
     setResumeFile(null);
     setError(null);
     setIsSubmitting(false);
+  }, []);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      setUser(userData);
+      
+      // Fetch user files
+      const fetchUserFiles = async () => {
+        setIsLoadingFiles(true);
+        const token = localStorage.getItem("access_token");
+        try {
+          const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.USERFILES}${userData.id}`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch user files");
+          }
+
+          const data = await response.json();
+          setUserFiles({
+            resume_id: data.resume_id,
+            jd_text: data.jd_text
+          });
+        } catch (err) {
+          console.error("Error fetching user files:", err);
+        } finally {
+          setIsLoadingFiles(false);
+        }
+      };
+
+      fetchUserFiles();
+    }
   }, []);
 
   useEffect(() => {
@@ -166,6 +207,36 @@ const ImproveResumeStep1 = () => {
     }
   }
 
+  const handleUseExistingResume = async () => {
+    if (!userFiles.resume_id) return;
+    
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.DOWNLOADRESUME}${user.id}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch resume");
+      }
+
+      const blob = await response.blob();
+      const file = new File([blob], "your-resume.pdf", { type: "application/pdf" });
+      setResumeFile(file);
+    } catch (err) {
+      console.error("Error fetching resume:", err);
+    }
+  }
+
+  const handleUseExistingJD = () => {
+    if (userFiles.jd_text) {
+      setJobDescription(userFiles.jd_text);
+    }
+  }
+
   const handleDrag = (e) => {
     e.preventDefault()
     e.stopPropagation()
@@ -214,7 +285,7 @@ const ImproveResumeStep1 = () => {
       }, 800); // Update every 800ms
 
       const response = await axios.post(
-        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.EVALUATE_CV}`,
+        `${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.EVALUATE_CV}`,
         formData
       );
 
@@ -500,16 +571,20 @@ const ImproveResumeStep1 = () => {
               alignItems: 'center', 
               gap: '12px'
             }}>
-              <div style={{
-                width: '32px',
-                height: '32px', 
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: 'white', fontWeight: 'bold', fontSize: '12px' }}>CV</span>
+              <div 
+                style={{
+                  width: '40px',
+                  height: '40px', 
+                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+                onClick={() => navigate('/')}
+              >
+                <span style={{ color: 'white', fontWeight: 'bold' }}>CV</span>
               </div>
               <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>
@@ -528,34 +603,142 @@ const ImproveResumeStep1 = () => {
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '16px'
+              gap: '16px',
+              position: 'relative'
             }}>
-              <button 
-                onClick={() => navigate('/signin')}
-                style={{ 
-                  color: '#374151', 
-                  fontWeight: '500',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                Sign In
-              </button>
-              <button 
-                onClick={() => navigate('/signup')}
-                style={{
-                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 20px',
-                  borderRadius: '6px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Sign Up
-              </button>
+              {user ? (
+                <>
+                  <div 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      padding: '8px 12px', 
+                      border: '1px solid #e5e7eb', 
+                      borderRadius: '12px', 
+                      cursor: 'pointer', 
+                      transition: 'background-color 0.2s ease',
+                      userSelect: 'none',
+                      boxShadow: dropdownVisible ? '0 2px 4px rgba(0, 0, 0, 0.1)' : 'none'
+                    }}
+                    onClick={() => setDropdownVisible(!dropdownVisible)}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    ref={(el) => {
+                      if (el && dropdownVisible) {
+                        const dropdown = document.getElementById('dropdown-menu');
+                        if (dropdown) {
+                          dropdown.style.width = `${el.offsetWidth}px`;
+                        }
+                      }
+                    }}
+                  >
+                    <span style={{ color: '#374151', fontWeight: '500' }}>
+                      Welcome, {user.full_name || 'User'}
+                    </span>
+                    <ChevronDown size={16} color="#374151" />
+                  </div>
+                  {dropdownVisible && (
+                    <div
+                      id="dropdown-menu"
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        background: 'white',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        zIndex: 100,
+                        animation: 'fadeIn 0.2s ease-in-out'
+                      }}
+                    >
+                      <button 
+                        onClick={() => {
+                          navigate('/dashboard');
+                          setDropdownVisible(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Dashboard
+                      </button>
+                      <hr style={{ margin: 0, border: 'none', borderTop: '1px solid #e5e7eb' }} />
+                      <button 
+                        onClick={() => {
+                          localStorage.clear();
+                          setUser(null);
+                          setDropdownVisible(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '14px',
+                          lineHeight: '1.6',
+                          transition: 'background-color 0.2s ease',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        Log Out
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => navigate('/signin', { state: { from: '/improve-resume/step1' } })}
+                    style={{ 
+                      color: '#374151', 
+                      fontWeight: '500',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={() => navigate('/signup')}
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -729,9 +912,31 @@ We are looking for a Senior Software Engineer with 5+ years of experience in Rea
                 alignItems: 'center',
                 marginTop: '8px'
               }}>
-                <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                  {jobDescription.length} characters
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <span style={{ fontSize: '14px', color: '#6b7280' }}>
+                    {jobDescription.length} characters
+                  </span>
+                  {user && userFiles.jd_text && !jobDescription && (
+                    <button
+                      onClick={handleUseExistingJD}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '6px 12px',
+                        background: '#dbeafe',
+                        color: '#3b82f6',
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      Use Your JD
+                    </button>
+                  )}
+                </div>
                 {jobDescription.length > 100 && (
                   <div style={{ 
                     display: 'flex',
@@ -894,9 +1099,32 @@ We are looking for a Senior Software Engineer with 5+ years of experience in Rea
                         />
                       </label>
                     </div>
-                    <p style={{ fontSize: '16px', color: '#6b7280' }}>
-                      Supports PDF, DOC, DOCX files up to 10MB
-                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <p style={{ fontSize: '14px', color: '#6b7280' }}>
+                        Supports PDF, DOC, DOCX • Max 10MB
+                      </p>
+                      {user && userFiles.resume_id && (
+                        <button
+                          onClick={handleUseExistingResume}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '12px 24px',
+                            background: '#dbeafe',
+                            color: '#3b82f6',
+                            borderRadius: '8px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            margin: '0 auto'
+                          }}
+                        >
+                          Use Your Uploaded Resume
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
