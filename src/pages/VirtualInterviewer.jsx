@@ -4,14 +4,14 @@ import {
   MicOff, 
   Volume2, 
   VolumeX, 
-  Play, 
-  Pause,
   Settings,
-  RotateCcw,
   Maximize,
   Minimize,
   User,
-  Bot
+  Bot,
+  RotateCcw,
+  Zap,
+  Brain
 } from 'lucide-react'
 import API_CONFIG from '../config/api'
 import { createCustomAPI } from '../utils/api'
@@ -43,10 +43,16 @@ const VirtualInterviewer = () => {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // 3D Avatar state
-  const [avatarMood, setAvatarMood] = useState('neutral') // neutral, speaking, listening, thinking
+  // Avatar state
+  const [avatarMood, setAvatarMood] = useState('neutral')
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [selectedAvatar, setSelectedAvatar] = useState({
+    id: 'professional-male',
+    name: 'Professional Male',
+    emoji: '👨‍💼',
+    personality: 'confident'
+  })
 
   // Speech settings
   const [speechSettings, setSpeechSettings] = useState({
@@ -58,16 +64,23 @@ const VirtualInterviewer = () => {
     language: 'en-US'
   })
 
-  // Voice visualization
+  // Audio visualization
   const [audioLevel, setAudioLevel] = useState(0)
   const audioContextRef = useRef(null)
   const analyserRef = useRef(null)
   const streamRef = useRef(null)
-
-  // Refs
   const recognitionRef = useRef(null)
-  const synthRef = useRef(null)
-  const avatarContainerRef = useRef(null)
+  const avatarRef = useRef(null)
+
+  // Avatar presets
+  const avatarPresets = [
+    { id: 'professional-male', name: 'Professional Male', emoji: '👨‍💼', personality: 'confident' },
+    { id: 'professional-female', name: 'Professional Female', emoji: '👩‍💼', personality: 'friendly' },
+    { id: 'tech-expert', name: 'Tech Expert', emoji: '👨‍💻', personality: 'analytical' },
+    { id: 'hr-manager', name: 'HR Manager', emoji: '👩‍🏫', personality: 'warm' },
+    { id: 'startup-ceo', name: 'Startup CEO', emoji: '👨‍🚀', personality: 'dynamic' },
+    { id: 'senior-dev', name: 'Senior Developer', emoji: '👩‍💻', personality: 'methodical' }
+  ]
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -93,6 +106,7 @@ const VirtualInterviewer = () => {
         console.error('Speech recognition error:', event.error)
         setIsListening(false)
         setAvatarMood('neutral')
+        stopAudioVisualization()
       }
 
       recognitionRef.current.onend = () => {
@@ -106,107 +120,11 @@ const VirtualInterviewer = () => {
       if (recognitionRef.current) {
         recognitionRef.current.stop()
       }
+      stopAudioVisualization()
     }
   }, [speechSettings.language])
 
-  // Handle user speech input
-  const handleUserSpeech = async (transcript) => {
-    if (!transcript.trim()) return
-
-    const userMessage = {
-      id: messages.length + 1,
-      type: 'user',
-      message: transcript,
-      timestamp: new Date()
-    }
-
-    setMessages(prev => [...prev, userMessage])
-    setIsProcessing(true)
-    setAvatarMood('thinking')
-
-    try {
-      // Send to backend API
-      const api = createCustomAPI(backendUrl)
-      const response = await api.chatDomain({
-        room_id: roomId,
-        query: transcript
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      const botResponse = data.response || 'I apologize, but I could not process your response.'
-      
-      const botMessage = {
-        id: messages.length + 2,
-        type: 'bot',
-        message: botResponse,
-        timestamp: new Date()
-      }
-
-      setMessages(prev => [...prev, botMessage])
-      
-      // Auto-speak the response if enabled
-      if (speechSettings.autoSpeak) {
-        speakText(botResponse)
-      }
-    } catch (error) {
-      console.error('Backend API error:', error)
-      const errorMessage = {
-        id: messages.length + 2,
-        type: 'bot',
-        message: "I'm having trouble connecting to the server. Please check your connection and try again.",
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, errorMessage])
-    } finally {
-      setIsProcessing(false)
-      setAvatarMood('neutral')
-    }
-  }
-
-  // Text-to-Speech function
-  const speakText = useCallback((text) => {
-    if ('speechSynthesis' in window) {
-      // Stop any current speech
-      window.speechSynthesis.cancel()
-      
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = speechSettings.speed
-      utterance.pitch = speechSettings.pitch
-      utterance.volume = speechSettings.volume
-      
-      // Set voice
-      const voices = window.speechSynthesis.getVoices()
-      const selectedVoice = voices.find(voice => 
-        voice.name.toLowerCase().includes(speechSettings.voice) ||
-        voice.lang === speechSettings.language
-      )
-      if (selectedVoice) utterance.voice = selectedVoice
-
-      utterance.onstart = () => {
-        setIsSpeaking(true)
-        setAvatarMood('speaking')
-      }
-
-      utterance.onend = () => {
-        setIsSpeaking(false)
-        setAvatarMood('neutral')
-      }
-
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event.error)
-        setIsSpeaking(false)
-        setAvatarMood('neutral')
-      }
-
-      window.speechSynthesis.speak(utterance)
-    }
-  }, [speechSettings])
-
-  // Audio visualization functions
+  // Audio visualization
   const startAudioVisualization = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -245,7 +163,94 @@ const VirtualInterviewer = () => {
     setAudioLevel(0)
   }
 
-  // Start/Stop listening
+  // Handle user speech
+  const handleUserSpeech = async (transcript) => {
+    if (!transcript.trim()) return
+
+    const userMessage = {
+      id: messages.length + 1,
+      type: 'user',
+      message: transcript,
+      timestamp: new Date()
+    }
+
+    setMessages(prev => [...prev, userMessage])
+    setIsProcessing(true)
+    setAvatarMood('thinking')
+
+    try {
+      const api = createCustomAPI(backendUrl)
+      const response = await api.chatDomain({
+        room_id: roomId,
+        query: transcript
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      const botResponse = data.response || 'I apologize, but I could not process your response.'
+      
+      const botMessage = {
+        id: messages.length + 2,
+        type: 'bot',
+        message: botResponse,
+        timestamp: new Date()
+      }
+
+      setMessages(prev => [...prev, botMessage])
+      
+      if (speechSettings.autoSpeak) {
+        speakText(botResponse)
+      }
+    } catch (error) {
+      console.error('Backend API error:', error)
+      const errorMessage = {
+        id: messages.length + 2,
+        type: 'bot',
+        message: "I'm having trouble connecting to the server. Please check your connection and try again.",
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setIsProcessing(false)
+      setAvatarMood('neutral')
+    }
+  }
+
+  // Text-to-Speech
+  const speakText = useCallback((text) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+      
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.rate = speechSettings.speed
+      utterance.pitch = speechSettings.pitch
+      utterance.volume = speechSettings.volume
+      
+      const voices = window.speechSynthesis.getVoices()
+      const selectedVoice = voices.find(voice => 
+        voice.name.toLowerCase().includes(speechSettings.voice) ||
+        voice.lang === speechSettings.language
+      )
+      if (selectedVoice) utterance.voice = selectedVoice
+
+      utterance.onstart = () => {
+        setIsSpeaking(true)
+        setAvatarMood('speaking')
+      }
+
+      utterance.onend = () => {
+        setIsSpeaking(false)
+        setAvatarMood('neutral')
+      }
+
+      window.speechSynthesis.speak(utterance)
+    }
+  }, [speechSettings])
+
+  // Controls
   const toggleListening = () => {
     if (isListening) {
       recognitionRef.current?.stop()
@@ -254,21 +259,17 @@ const VirtualInterviewer = () => {
     }
   }
 
-  // Stop speaking
   const stopSpeaking = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      setIsSpeaking(false)
-      setAvatarMood('neutral')
-    }
+    window.speechSynthesis.cancel()
+    setIsSpeaking(false)
+    setAvatarMood('neutral')
   }
 
-  // Advanced 3D Avatar Component
+  // CSS 3D Avatar Component (No external dependencies)
   const Avatar3D = () => {
     return (
       <div 
-        ref={avatarContainerRef}
-        className="avatar-container"
+        ref={avatarRef}
         style={{
           width: '100%',
           height: '100%',
@@ -278,258 +279,330 @@ const VirtualInterviewer = () => {
           alignItems: 'center',
           justifyContent: 'center',
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          perspective: '1000px'
         }}
       >
         {/* Animated Background */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'radial-gradient(circle at 50% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 70%)',
-          animation: 'breathe 4s ease-in-out infinite'
-        }} />
-
-        {/* Neural Network Background */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundImage: `
-            radial-gradient(circle at 20% 30%, rgba(102, 126, 234, 0.1) 1px, transparent 1px),
-            radial-gradient(circle at 80% 70%, rgba(118, 75, 162, 0.1) 1px, transparent 1px),
-            radial-gradient(circle at 40% 80%, rgba(102, 126, 234, 0.05) 1px, transparent 1px)
-          `,
-          backgroundSize: '100px 100px, 150px 150px, 200px 200px',
-          animation: 'float 6s ease-in-out infinite'
-        }} />
-
-        {/* Main Avatar */}
         <div 
-          className={`avatar-main ${avatarMood}`}
+          className="neural-bg"
           style={{
-            width: '280px',
-            height: '280px',
-            borderRadius: '50%',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             background: `
-              radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2) 0%, transparent 50%),
-              linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%)
+              radial-gradient(circle at 20% 30%, rgba(102, 126, 234, 0.1) 2px, transparent 2px),
+              radial-gradient(circle at 80% 70%, rgba(118, 75, 162, 0.1) 2px, transparent 2px),
+              radial-gradient(circle at 40% 80%, rgba(102, 126, 234, 0.05) 2px, transparent 2px)
             `,
-            backdropFilter: 'blur(20px)',
-            border: '3px solid rgba(255, 255, 255, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '120px',
-            color: 'white',
+            backgroundSize: '100px 100px, 150px 150px, 200px 200px',
+            animation: 'neuralFloat 8s ease-in-out infinite'
+          }}
+        />
+
+        {/* Main Avatar Container */}
+        <div 
+          className={`avatar-3d ${avatarMood}`}
+          style={{
+            width: '320px',
+            height: '320px',
+            position: 'relative',
+            transformStyle: 'preserve-3d',
+            animation: `avatar-${avatarMood} 2s ease-in-out infinite`,
             transition: 'all 0.5s ease',
-            transform: avatarMood === 'speaking' ? 'scale(1.1)' : 'scale(1)',
-            boxShadow: `
-              0 0 60px rgba(102, 126, 234, ${avatarMood === 'speaking' ? '0.6' : '0.3'}),
-              inset 0 0 60px rgba(255, 255, 255, 0.1)
-            `,
-            position: 'relative'
+            margin: 'auto'
           }}
         >
           {/* Avatar Face */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            height: '100%',
-            position: 'relative'
-          }}>
-            {avatarMood === 'speaking' ? (
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center',
-                animation: 'speaking 0.5s ease-in-out infinite alternate'
-              }}>
-                <div style={{ fontSize: '60px', marginBottom: '10px' }}>👨‍💼</div>
-                <div style={{ fontSize: '20px', opacity: 0.8 }}>🗣️</div>
-              </div>
-            ) : avatarMood === 'listening' ? (
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center',
-                animation: 'listening 1s ease-in-out infinite'
-              }}>
-                <div style={{ fontSize: '60px', marginBottom: '10px' }}>👨‍💼</div>
-                <div style={{ fontSize: '20px', opacity: 0.8 }}>👂</div>
-              </div>
-            ) : avatarMood === 'thinking' ? (
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center',
-                animation: 'thinking 2s ease-in-out infinite'
-              }}>
-                <div style={{ fontSize: '60px', marginBottom: '10px' }}>👨‍💼</div>
-                <div style={{ fontSize: '20px', opacity: 0.8 }}>🤔</div>
-              </div>
-            ) : (
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center',
-                animation: 'idle 3s ease-in-out infinite'
-              }}>
-                <div style={{ fontSize: '60px', marginBottom: '10px' }}>👨‍💼</div>
-                <div style={{ fontSize: '20px', opacity: 0.8 }}>😊</div>
-              </div>
-            )}
-          </div>
-
-          {/* Voice Waves (when speaking) */}
-          {isSpeaking && (
-            <div style={{
+          <div 
+            className="avatar-face"
+            style={{
+              width: '280px',
+              height: '280px',
+              borderRadius: '50%',
+              background: `
+                radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, transparent 50%),
+                linear-gradient(135deg, rgba(102, 126, 234, 0.4) 0%, rgba(118, 75, 162, 0.4) 100%)
+              `,
+              backdropFilter: 'blur(20px)',
+              border: '3px solid rgba(255, 255, 255, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '120px',
+              color: 'white',
               position: 'absolute',
               top: '50%',
               left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '100%',
-              height: '100%',
-              pointerEvents: 'none'
-            }}>
+              transform: `
+                translate(-50%, -50%)
+                translateZ(50px) 
+                scale(${avatarMood === 'speaking' ? '1.1' : '1'})
+                rotateY(${avatarMood === 'thinking' ? '5deg' : '0deg'})
+              `,
+              boxShadow: `
+                0 0 80px rgba(102, 126, 234, ${avatarMood === 'speaking' ? '0.8' : '0.4'}),
+                inset 0 0 80px rgba(255, 255, 255, 0.1)
+              `,
+              transition: 'all 0.3s ease'
+            }}
+          >
+            {/* Avatar Emoji */}
+            <div 
+              className="avatar-emoji"
+              style={{
+                fontSize: '80px',
+                transform: `
+                  rotateX(${avatarMood === 'listening' ? '-10deg' : '0deg'})
+                  rotateY(${avatarMood === 'speaking' ? '5deg' : '0deg'})
+                `,
+                transition: 'all 0.3s ease',
+                textShadow: '0 0 20px rgba(255, 255, 255, 0.5)'
+              }}
+            >
+              {selectedAvatar.emoji}
+            </div>
+
+            {/* Mood Indicator */}
+            <div 
+              style={{
+                position: 'absolute',
+                bottom: '30px',
+                left: '50%',
+                transform: 'translate(-50%, 0) translateZ(30px)',
+                fontSize: '24px',
+                opacity: 0.9,
+                animation: avatarMood === 'speaking' ? 'bounce 0.5s infinite' : 'none',
+                textShadow: '0 0 15px rgba(255, 255, 255, 0.8)'
+              }}
+            >
+              {avatarMood === 'speaking' ? '🗣️' : 
+               avatarMood === 'listening' ? '👂' :
+               avatarMood === 'thinking' ? '🤔' : '😊'}
+            </div>
+
+          </div>
+
+          {/* Voice Waves - Expanding from avatar center */}
+          {isSpeaking && (
+            <div 
+              className="voice-waves"
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '400px',
+                height: '400px',
+                pointerEvents: 'none',
+                zIndex: 1
+              }}
+            >
               {[1, 2, 3].map(i => (
                 <div
                   key={i}
+                  className="wave"
                   style={{
                     position: 'absolute',
                     top: '50%',
                     left: '50%',
                     transform: 'translate(-50%, -50%)',
-                    width: `${100 + i * 40}%`,
-                    height: `${100 + i * 40}%`,
-                    border: '2px solid rgba(102, 126, 234, 0.3)',
+                    width: `${280 + i * 50}px`,
+                    height: `${280 + i * 50}px`,
+                    border: `2px solid rgba(102, 126, 234, ${0.5 - i * 0.15})`,
                     borderRadius: '50%',
-                    animation: `wave ${1 + i * 0.5}s ease-out infinite`
+                    animation: `voiceWave ${1.5 + i * 0.5}s ease-out infinite`
                   }}
                 />
               ))}
             </div>
           )}
 
-          {/* Listening Indicator with Audio Level */}
+
+          {/* Beautiful Sound Waves - Dưới avatar khi listening */}
           {isListening && (
-            <>
-              <div style={{
+            <div 
+              className="sound-waves-container"
+              style={{
                 position: 'absolute',
-                top: '10px',
-                left: '10px',
-                right: '10px',
                 bottom: '10px',
-                border: `3px dashed rgba(16, 185, 129, ${0.6 + audioLevel * 0.4})`,
-                borderRadius: '50%',
-                animation: 'listening-border 2s linear infinite',
-                transform: `scale(${1 + audioLevel * 0.1})`
-              }} />
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: '350px',
+                height: '80px',
+                pointerEvents: 'none',
+                zIndex: 10
+              }}
+            >
+              {/* Gợn sóng mềm mại */}
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div
+                  key={`wave-${i}`}
+                  style={{
+                    position: 'absolute',
+                    bottom: `${i * 6}px`,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: `${150 + audioLevel * 80 + i * 20}px`,
+                    height: '3px',
+                    background: `linear-gradient(90deg, 
+                      transparent 0%, 
+                      rgba(16, 185, 129, ${(0.9 - i * 0.12) * (0.4 + audioLevel * 0.6)}) 20%,
+                      rgba(34, 197, 94, ${(0.7 - i * 0.1) * (0.6 + audioLevel * 0.4)}) 50%,
+                      rgba(16, 185, 129, ${(0.9 - i * 0.12) * (0.4 + audioLevel * 0.6)}) 80%,
+                      transparent 100%)`,
+                    borderRadius: '2px',
+                    animation: `waveFlow ${1.5 + i * 0.2}s ease-in-out infinite`,
+                    animationDelay: `${i * 0.1}s`,
+                    opacity: audioLevel > 0.05 ? 1 : 0.4,
+                    filter: `blur(${i * 0.2}px)`
+                  }}
+                />
+              ))}
               
-              {/* Audio Level Bars */}
+              {/* Equalizer Bars - Center */}
               <div style={{
                 position: 'absolute',
-                bottom: '80px',
+                bottom: '0px',
                 left: '50%',
                 transform: 'translateX(-50%)',
                 display: 'flex',
-                gap: '4px',
-                alignItems: 'end'
+                gap: '2px',
+                alignItems: 'end',
+                padding: '0 20px'
               }}>
-                {[1, 2, 3, 4, 5].map(i => (
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => (
                   <div
-                    key={i}
+                    key={`bar-${i}`}
                     style={{
-                      width: '6px',
-                      height: `${20 + audioLevel * 40 * (i / 5)}px`,
-                      background: `rgba(16, 185, 129, ${audioLevel > (i / 5) ? 0.8 : 0.3})`,
-                      borderRadius: '3px',
-                      transition: 'all 0.1s ease'
+                      width: '3px',
+                      height: `${6 + audioLevel * 30 * Math.sin((i / 11) * Math.PI)}px`,
+                      background: `linear-gradient(to top, 
+                        rgba(16, 185, 129, ${audioLevel > (i / 11) ? '1' : '0.4'}),
+                        rgba(34, 197, 94, ${audioLevel > (i / 11) ? '0.9' : '0.3'}),
+                        rgba(59, 130, 246, ${audioLevel > (i / 11) ? '0.7' : '0.2'})
+                      )`,
+                      borderRadius: '1.5px',
+                      transition: 'all 0.08s ease',
+                      boxShadow: audioLevel > (i / 11) ? 
+                        `0 0 6px rgba(16, 185, 129, ${audioLevel * 0.8})` : 'none',
+                      animation: `audioBar ${0.3 + i * 0.05}s ease-in-out infinite alternate`,
+                      animationDelay: `${i * 0.02}s`
                     }}
                   />
                 ))}
               </div>
-            </>
+              
+              {/* Glow Effect */}
+              <div style={{
+                position: 'absolute',
+                bottom: '0px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: `${100 + audioLevel * 150}px`,
+                height: '20px',
+                background: `radial-gradient(ellipse, 
+                  rgba(16, 185, 129, ${audioLevel * 0.3}) 0%, 
+                  transparent 70%)`,
+                borderRadius: '50%',
+                filter: 'blur(8px)',
+                animation: 'glowPulse 2s ease-in-out infinite'
+              }} />
+            </div>
           )}
+
         </div>
 
-        {/* Avatar Status */}
+        {/* Status Display */}
         <div 
           style={{
             position: 'absolute',
             bottom: '30px',
             left: '50%',
             transform: 'translateX(-50%)',
-            background: 'rgba(0, 0, 0, 0.8)',
+            background: 'rgba(0, 0, 0, 0.9)',
             color: 'white',
             padding: '12px 24px',
             borderRadius: '25px',
             fontSize: '16px',
             fontWeight: '600',
-            backdropFilter: 'blur(10px)',
+            backdropFilter: 'blur(15px)',
             border: '1px solid rgba(255, 255, 255, 0.2)',
-            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3)'
-          }}
-        >
-          {isProcessing ? '🧠 Processing your response...' :
-           isSpeaking ? '🗣️ Speaking...' :
-           isListening ? '👂 Listening carefully...' : '😊 Ready for your response'}
-        </div>
-
-        {/* Fullscreen Toggle */}
-        <button
-          onClick={() => setIsFullscreen(!isFullscreen)}
-          style={{
-            position: 'absolute',
-            top: '20px',
-            right: '20px',
-            background: 'rgba(255, 255, 255, 0.2)',
-            border: 'none',
-            borderRadius: '50%',
-            width: '50px',
-            height: '50px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: 'white',
-            backdropFilter: 'blur(10px)',
+            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.4)',
             transition: 'all 0.3s ease'
           }}
-          onMouseEnter={(e) => {
-            e.target.style.background = 'rgba(255, 255, 255, 0.3)'
-            e.target.style.transform = 'scale(1.1)'
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.background = 'rgba(255, 255, 255, 0.2)'
-            e.target.style.transform = 'scale(1)'
-          }}
         >
-          {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
-        </button>
+          {isProcessing ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Brain size={16} />
+              Processing your response...
+            </div>
+          ) : isSpeaking ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Volume2 size={16} />
+              Speaking...
+            </div>
+          ) : isListening ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Mic size={16} />
+              Listening... {Math.round(audioLevel * 100)}%
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Zap size={16} />
+              Ready for your response
+            </div>
+          )}
+        </div>
 
-        {/* AI Info Panel */}
+        {/* Controls */}
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          display: 'flex',
+          gap: '12px'
+        }}>
+          <button
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            style={{
+              background: 'rgba(0, 0, 0, 0.8)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '50px',
+              height: '50px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'white',
+              backdropFilter: 'blur(10px)',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+          </button>
+        </div>
+
+        {/* Avatar Info */}
         <div style={{
           position: 'absolute',
           top: '20px',
           left: '20px',
-          background: 'rgba(0, 0, 0, 0.7)',
+          background: 'rgba(0, 0, 0, 0.8)',
           padding: '12px 16px',
           borderRadius: '12px',
           backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.2)'
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          color: 'white'
         }}>
           <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
-            AI Interviewer
+            {selectedAvatar.name}
           </div>
           <div style={{ fontSize: '12px', opacity: 0.8 }}>
-            Session: {roomId.slice(0, 8)}...
+            {selectedAvatar.personality} interviewer
           </div>
         </div>
       </div>
@@ -570,7 +643,7 @@ const VirtualInterviewer = () => {
                 Virtual AI Interviewer
               </h1>
               <p style={{ margin: 0, opacity: 0.7, fontSize: '14px' }}>
-                Immersive 3D Interview Experience
+                Advanced Voice Interview Experience
               </p>
             </div>
           </div>
@@ -582,17 +655,22 @@ const VirtualInterviewer = () => {
                 background: 'rgba(255, 255, 255, 0.1)',
                 border: '1px solid rgba(255, 255, 255, 0.2)',
                 borderRadius: '8px',
-                padding: '8px',
+                padding: '8px 12px',
                 color: 'white',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
               }}
             >
-              <Settings size={20} />
+              <Settings size={16} />
+              Settings
             </button>
           </div>
         </div>
       </header>
 
+      {/* Main Content */}
       <div style={{ 
         maxWidth: '1400px', 
         margin: '0 auto', 
@@ -607,7 +685,8 @@ const VirtualInterviewer = () => {
           background: 'rgba(255, 255, 255, 0.05)',
           borderRadius: '20px',
           padding: '20px',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          minHeight: '600px'
         }}>
           <Avatar3D />
         </div>
@@ -619,6 +698,50 @@ const VirtualInterviewer = () => {
             flexDirection: 'column',
             gap: '20px'
           }}>
+            {/* Avatar Selector */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '15px',
+              padding: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>
+                🎭 Select Interviewer
+              </h3>
+              
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '8px'
+              }}>
+                {avatarPresets.map((avatar) => (
+                  <button
+                    key={avatar.id}
+                    onClick={() => setSelectedAvatar(avatar)}
+                    style={{
+                      background: selectedAvatar.id === avatar.id ? 
+                        'rgba(102, 126, 234, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                      border: selectedAvatar.id === avatar.id ? 
+                        '2px solid #667eea' : '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '8px',
+                      padding: '8px',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 0.3s ease',
+                      color: 'white'
+                    }}
+                  >
+                    <div style={{ fontSize: '24px', marginBottom: '4px' }}>
+                      {avatar.emoji}
+                    </div>
+                    <div style={{ fontSize: '10px', fontWeight: '600' }}>
+                      {avatar.name}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Chat Messages */}
             <div style={{
               flex: 1,
@@ -626,53 +749,55 @@ const VirtualInterviewer = () => {
               borderRadius: '15px',
               padding: '20px',
               border: '1px solid rgba(255, 255, 255, 0.1)',
-              maxHeight: '400px',
+              maxHeight: '300px',
               overflowY: 'auto'
             }}>
               <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>
-                Interview Transcript
+                💬 Interview Transcript
               </h3>
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {messages.map((message) => (
                   <div key={message.id} style={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    gap: '12px',
+                    gap: '8px',
                     flexDirection: message.type === 'user' ? 'row-reverse' : 'row'
                   }}>
                     <div style={{
-                      width: '32px',
-                      height: '32px',
+                      width: '28px',
+                      height: '28px',
                       borderRadius: '50%',
                       background: message.type === 'user' ? '#667eea' : '#764ba2',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      flexShrink: 0
+                      flexShrink: 0,
+                      fontSize: '12px'
                     }}>
-                      {message.type === 'user' ? <User size={16} /> : <Bot size={16} />}
+                      {message.type === 'user' ? <User size={12} /> : <Bot size={12} />}
                     </div>
                     
                     <div style={{
                       background: message.type === 'user' ? 'rgba(102, 126, 234, 0.2)' : 'rgba(118, 75, 162, 0.2)',
-                      padding: '12px 16px',
+                      padding: '8px 12px',
                       borderRadius: '12px',
-                      maxWidth: '280px',
-                      fontSize: '14px',
-                      lineHeight: '1.4'
+                      maxWidth: '250px',
+                      fontSize: '13px',
+                      lineHeight: '1.4',
+                      border: `1px solid ${message.type === 'user' ? 'rgba(102, 126, 234, 0.3)' : 'rgba(118, 75, 162, 0.3)'}`
                     }}>
                       <p style={{ margin: 0, marginBottom: '4px' }}>
                         {message.message}
                       </p>
-                      <span style={{ 
-                        fontSize: '12px', 
+                      <div style={{ 
+                        fontSize: '11px', 
                         opacity: 0.6,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px'
+                        justifyContent: 'space-between'
                       }}>
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         {message.type === 'bot' && (
                           <button
                             onClick={() => speakText(message.message)}
@@ -684,17 +809,17 @@ const VirtualInterviewer = () => {
                               padding: '2px'
                             }}
                           >
-                            <Volume2 size={12} />
+                            <Volume2 size={10} />
                           </button>
                         )}
-                      </span>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Enhanced Controls */}
+            {/* Voice Controls */}
             <div style={{
               background: 'rgba(255, 255, 255, 0.05)',
               borderRadius: '15px',
@@ -719,14 +844,15 @@ const VirtualInterviewer = () => {
                     padding: '16px',
                     color: 'white',
                     fontWeight: 'bold',
-                    cursor: isListening || isSpeaking || isProcessing ? 'not-allowed' : 'pointer',
+                    cursor: isSpeaking || isProcessing ? 'not-allowed' : 'pointer',
                     opacity: isSpeaking || isProcessing ? 0.5 : 1,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '8px',
                     transition: 'all 0.3s ease',
-                    boxShadow: isListening ? '0 0 20px rgba(239, 68, 68, 0.5)' : '0 0 20px rgba(16, 185, 129, 0.3)'
+                    boxShadow: isListening ? '0 0 20px rgba(239, 68, 68, 0.5)' : '0 0 20px rgba(16, 185, 129, 0.3)',
+                    transform: isListening ? 'scale(1.02)' : 'scale(1)'
                   }}
                 >
                   {isListening ? <MicOff size={20} /> : <Mic size={20} />}
@@ -746,43 +872,15 @@ const VirtualInterviewer = () => {
                     opacity: isSpeaking ? 1 : 0.5,
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.3s ease'
+                    justifyContent: 'center'
                   }}
                 >
                   <VolumeX size={20} />
                 </button>
               </div>
 
-              {/* Status with visual feedback */}
-              <div style={{ 
-                fontSize: '14px', 
-                textAlign: 'center',
-                padding: '12px',
-                borderRadius: '8px',
-                background: isProcessing ? 'rgba(59, 130, 246, 0.2)' :
-                           isListening ? 'rgba(16, 185, 129, 0.2)' :
-                           isSpeaking ? 'rgba(139, 92, 246, 0.2)' :
-                           'rgba(255, 255, 255, 0.1)',
-                border: `1px solid ${isProcessing ? 'rgba(59, 130, 246, 0.3)' :
-                                    isListening ? 'rgba(16, 185, 129, 0.3)' :
-                                    isSpeaking ? 'rgba(139, 92, 246, 0.3)' :
-                                    'rgba(255, 255, 255, 0.2)'}`,
-                transition: 'all 0.3s ease'
-              }}>
-                {isProcessing ? '🧠 AI is processing your response...' :
-                 isListening ? `🎤 Listening... Volume: ${Math.round(audioLevel * 100)}%` :
-                 isSpeaking ? '🔊 AI is speaking...' :
-                 '✨ Click "Start Speaking" to respond with your voice'}
-              </div>
-
               {/* Quick Actions */}
-              <div style={{ 
-                display: 'flex', 
-                gap: '8px', 
-                marginTop: '16px',
-                fontSize: '12px'
-              }}>
+              <div style={{ display: 'flex', gap: '8px', fontSize: '12px' }}>
                 <button
                   onClick={() => speakText(messages[messages.length - 1]?.message || '')}
                   disabled={!messages.length || isSpeaking}
@@ -842,36 +940,36 @@ const VirtualInterviewer = () => {
             background: '#1a1a2e',
             borderRadius: '20px',
             padding: '30px',
-            width: '400px',
-            border: '1px solid rgba(255, 255, 255, 0.2)'
+            width: '450px',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            maxHeight: '80vh',
+            overflowY: 'auto'
           }}>
-            <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Speech Settings</h3>
-            
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <h3 style={{ margin: 0, color: 'white' }}>🎛️ Voice Settings</h3>
+              <button
+                onClick={() => setShowSettings(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '20px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>
-                  Voice Type
-                </label>
-                <select
-                  value={speechSettings.voice}
-                  onChange={(e) => setSpeechSettings(prev => ({ ...prev, voice: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    color: 'white'
-                  }}
-                >
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>
-                  Speech Speed: {speechSettings.speed}
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'white' }}>
+                  Speech Speed: {speechSettings.speed.toFixed(1)}x
                 </label>
                 <input
                   type="range"
@@ -885,7 +983,7 @@ const VirtualInterviewer = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'white' }}>
                   Volume: {Math.round(speechSettings.volume * 100)}%
                 </label>
                 <input
@@ -906,95 +1004,93 @@ const VirtualInterviewer = () => {
                   checked={speechSettings.autoSpeak}
                   onChange={(e) => setSpeechSettings(prev => ({ ...prev, autoSpeak: e.target.checked }))}
                 />
-                <label htmlFor="autoSpeak" style={{ fontSize: '14px' }}>
+                <label htmlFor="autoSpeak" style={{ fontSize: '14px', color: 'white' }}>
                   Auto-speak AI responses
                 </label>
               </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-              <button
-                onClick={() => setShowSettings(false)}
-                style={{
-                  flex: 1,
-                  background: '#6b7280',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  color: 'white',
-                  cursor: 'pointer'
-                }}
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Advanced Custom Styles */}
+      {/* Advanced CSS Animations */}
       <style>
         {`
-          .avatar-container {
-            transition: all 0.3s ease;
-          }
-          
-          /* Avatar Animations */
-          @keyframes breathe {
-            0%, 100% { transform: scale(1); opacity: 0.1; }
-            50% { transform: scale(1.1); opacity: 0.2; }
-          }
-          
-          @keyframes float {
+          @keyframes neuralFloat {
             0%, 100% { transform: translateY(0px) rotate(0deg); }
-            33% { transform: translateY(-10px) rotate(120deg); }
-            66% { transform: translateY(5px) rotate(240deg); }
+            33% { transform: translateY(-15px) rotate(120deg); }
+            66% { transform: translateY(10px) rotate(240deg); }
           }
           
-          @keyframes speaking {
-            0% { transform: scale(1) rotate(-2deg); }
-            100% { transform: scale(1.05) rotate(2deg); }
+          @keyframes avatar-speaking {
+            0%, 100% { transform: scale(1.05) rotateY(-2deg); }
+            50% { transform: scale(1.1) rotateY(2deg); }
           }
           
-          @keyframes listening {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.02); }
+          @keyframes avatar-listening {
+            0%, 100% { transform: scale(1) rotateX(0deg); }
+            50% { transform: scale(1.02) rotateX(-5deg); }
           }
           
-          @keyframes thinking {
-            0% { transform: rotate(0deg); }
-            25% { transform: rotate(-5deg); }
-            75% { transform: rotate(5deg); }
-            100% { transform: rotate(0deg); }
+          @keyframes avatar-thinking {
+            0% { transform: rotateY(0deg); }
+            25% { transform: rotateY(-10deg); }
+            75% { transform: rotateY(10deg); }
+            100% { transform: rotateY(0deg); }
           }
           
-          @keyframes idle {
+          @keyframes avatar-neutral {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-8px); }
           }
           
-          @keyframes wave {
+          @keyframes voiceWave {
             0% { 
               transform: translate(-50%, -50%) scale(0.8); 
               opacity: 0.8; 
             }
             100% { 
-              transform: translate(-50%, -50%) scale(1.5); 
+              transform: translate(-50%, -50%) scale(1.8); 
               opacity: 0; 
             }
           }
           
-          @keyframes listening-border {
-            0% { 
-              transform: rotate(0deg); 
-              border-color: rgba(16, 185, 129, 0.6); 
+          @keyframes waveFlow {
+            0%, 100% { 
+              transform: translateX(-50%) scaleX(1);
+              opacity: 0.8;
             }
             50% { 
-              border-color: rgba(16, 185, 129, 0.3); 
+              transform: translateX(-50%) scaleX(1.2);
+              opacity: 1;
             }
-            100% { 
-              transform: rotate(360deg); 
-              border-color: rgba(16, 185, 129, 0.6); 
+          }
+          
+          @keyframes audioBar {
+            0% { transform: scaleY(1); }
+            100% { transform: scaleY(1.3); }
+          }
+          
+          @keyframes processingRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          
+          @keyframes bounce {
+            0%, 20%, 53%, 80%, 100% { transform: translateY(0px); }
+            40%, 43% { transform: translateY(-8px); }
+            70% { transform: translateY(-4px); }
+            90% { transform: translateY(-2px); }
+          }
+          
+          @keyframes glowPulse {
+            0%, 100% { 
+              opacity: 0.6;
+              transform: translateX(-50%) scaleX(1);
+            }
+            50% { 
+              opacity: 1;
+              transform: translateX(-50%) scaleX(1.2);
             }
           }
 
@@ -1017,11 +1113,15 @@ const VirtualInterviewer = () => {
             background: rgba(255, 255, 255, 0.5);
           }
 
-          /* Responsive design */
+          /* Responsive */
           @media (max-width: 768px) {
-            .avatar-main {
-              width: 200px !important;
-              height: 200px !important;
+            .avatar-3d {
+              width: 250px !important;
+              height: 250px !important;
+            }
+            .avatar-face {
+              width: 220px !important;
+              height: 220px !important;
               font-size: 80px !important;
             }
           }
