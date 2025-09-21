@@ -1183,6 +1183,34 @@ const InterviewPreparation = ({ sessionId, onReady, onError }) => {
           )}
           
           <button
+            onClick={() => navigate('/dashboard')}
+            style={{
+              background: 'white',
+              color: '#374151',
+              border: '2px solid #e5e7eb',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              fontSize: '14px',
+              marginBottom: '12px',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#d1d5db'
+              e.currentTarget.style.backgroundColor = '#f9fafb'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#e5e7eb'
+              e.currentTarget.style.backgroundColor = 'white'
+            }}
+          >
+            Change your CV and JD
+          </button>
+          
+          <button
             onClick={handlePrepare}
             style={{
               background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
