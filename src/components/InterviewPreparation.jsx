@@ -27,9 +27,38 @@ const InterviewPreparation = ({ sessionId, onReady, onError }) => {
 
   React.useEffect(() => {
     if (isReady && onReady) {
-      onReady(extractionStatus)
+      // Send language instruction to AI before marking as ready
+      const sendLanguageInstruction = async () => {
+        try {
+          const backendUrl = localStorage.getItem('backendUrl') || 'http://localhost:8000'
+          
+          // Import API function dynamically
+          const { createCustomAPI } = await import('../utils/api')
+          const api = createCustomAPI(backendUrl)
+          
+          // Send the language instruction silently [[memory:9202796]]
+          const languageInstruction = "hãy trả lời bằng tiếng anh cho tất cả các câu phía sau"
+          
+          const response = await api.chatDomain({
+            room_id: sessionId,
+            query: languageInstruction
+          })
+          
+          if (response.ok) {
+            console.log('Language instruction sent successfully to preparation session')
+          }
+        } catch (error) {
+          console.warn('Language instruction failed during preparation:', error)
+          // Don't block the preparation process if language instruction fails
+        } finally {
+          // Always call onReady regardless of language instruction success/failure
+          onReady(extractionStatus)
+        }
+      }
+      
+      sendLanguageInstruction()
     }
-  }, [isReady, extractionStatus, onReady])
+  }, [isReady, extractionStatus, onReady, sessionId])
 
   React.useEffect(() => {
     if (error && onError) {
@@ -1207,7 +1236,7 @@ const InterviewPreparation = ({ sessionId, onReady, onError }) => {
               e.currentTarget.style.backgroundColor = 'white'
             }}
           >
-            Change your CV and JD
+            Upload New CV and JD
           </button>
           
           <button

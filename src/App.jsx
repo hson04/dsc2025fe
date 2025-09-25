@@ -14,6 +14,12 @@ import SignUp from './pages/SignUp'
 import SignIn from './pages/SignIn'
 import VerifyAccount from './pages/VerifyAccount'
 import EvaluationReport from './pages/EvaluationReport'
+<<<<<<< Updated upstream
+=======
+import VirtualInterviewer from './pages/VirtualInterviewer'
+import MockInterviewPreparation from './pages/MockInterviewPreparation'
+import MockInterviewRedirect from './components/MockInterviewRedirect'
+>>>>>>> Stashed changes
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -24,7 +30,23 @@ function App() {
           {/* CVision System Routes */}
           <Route path="/" element={<CVisionHome />} />
           <Route 
+            path="/mock-interview/prepare" 
+            element={
+              <ProtectedRoute>
+                <MockInterviewPreparation />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/mock-interview" 
+            element={
+              <ProtectedRoute>
+                <MockInterviewRedirect />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/mock-interview/actual" 
             element={
               <ProtectedRoute>
                 <MockInterview />

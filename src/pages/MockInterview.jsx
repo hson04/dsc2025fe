@@ -293,15 +293,26 @@ const MockInterview = () => {
 
   // Function to create a new session
   const createNewSession = () => {
-    if (window.confirm('Are you sure you want to start a new interview session? This will clear the current conversation.')) {
+    if (window.confirm('Are you sure you want to start a new interview session? This will clear the current conversation and require new CV/JD upload.')) {
       // Generate new session ID
       const newSessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
       
-      // Update localStorage
-      localStorage.setItem('currentSessionId', newSessionId)
-      
-      // Clear old messages from localStorage
+      // Clear ALL session-related data from localStorage
+      localStorage.removeItem('currentSessionId')
       localStorage.removeItem(`messages_${roomId}`)
+      
+      // Clear any extraction status or cached data that might affect preparation
+      const keysToRemove = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && (key.startsWith('messages_') || key.includes('extraction') || key.includes('session'))) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key))
+      
+      // Set new session ID
+      localStorage.setItem('currentSessionId', newSessionId)
       
       // Update state
       setRoomId(newSessionId)
@@ -314,9 +325,9 @@ const MockInterview = () => {
         }
       ])
       
-      // Mark as new session and show preparation
+      // Force preparation for new session - always show preparation for new sessions
       setIsNewSession(true)
-      setIsInterviewReady(false)
+      setIsInterviewReady(false) // This will trigger the preparation component to show
       
       // Refresh recent interviews
       fetchRecentInterviews()
