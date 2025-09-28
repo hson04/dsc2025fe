@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Mic, 
   MicOff, 
@@ -11,12 +12,61 @@ import {
   Bot,
   RotateCcw,
   Zap,
-  Brain
+  Brain,
+  Plus
 } from 'lucide-react'
 import API_CONFIG from '../config/api'
 import { createCustomAPI } from '../utils/api'
+import InterviewPreparation from '../components/InterviewPreparation'
 
 const VirtualInterviewer = () => {
+  const navigate = useNavigate()
+  
+  // Interview preparation state
+  const [isInterviewReady, setIsInterviewReady] = useState(false)
+  const [preparationError, setPreparationError] = useState(null)
+
+  // Interview preparation handlers
+  const handleInterviewReady = (status) => {
+    console.log('Interview preparation completed:', status)
+    setIsInterviewReady(true)
+    setPreparationError(null)
+  }
+
+  const handlePreparationError = (error) => {
+    console.error('Interview preparation failed:', error)
+    setPreparationError(error)
+    setIsInterviewReady(false)
+  }
+
+  // Function to create a new session
+  const createNewSession = () => {
+    if (window.confirm('Are you sure you want to start a new virtual interview session? This will reset the current conversation.')) {
+      // Generate new session ID
+      const newSessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
+      
+      // Update localStorage
+      localStorage.setItem('currentSessionId', newSessionId)
+      
+      // Reset state to show preparation again
+      setIsInterviewReady(false)
+      setPreparationError(null)
+      
+      // Reset messages
+      setMessages([
+        {
+          id: 1,
+          type: 'bot',
+          message: "Hello! I'm your Virtual AI Interviewer. I'll conduct a professional interview with you today. Are you ready to begin?",
+          timestamp: new Date(),
+        }
+      ])
+      
+      // Update roomId to trigger re-preparation
+      window.location.reload() // Simple way to restart the entire component
+    }
+  }
+
   // Backend configuration
   const [backendUrl] = useState(() => {
     return localStorage.getItem('backendUrl') || API_CONFIG.BASE_URL
@@ -609,6 +659,17 @@ const VirtualInterviewer = () => {
     )
   }
 
+  // Show interview preparation if not ready
+  if (!isInterviewReady) {
+    return (
+      <InterviewPreparation
+        sessionId={roomId}
+        onReady={handleInterviewReady}
+        onError={handlePreparationError}
+      />
+    )
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#0f0f23', color: 'white' }}>
       {/* Header */}
@@ -625,7 +686,24 @@ const VirtualInterviewer = () => {
           alignItems: 'center', 
           justifyContent: 'space-between' 
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '16px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onClick={() => navigate('/')}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.02)'
+              e.currentTarget.style.opacity = '0.8'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)'
+              e.currentTarget.style.opacity = '1'
+            }}
+          >
             <div style={{
               width: '50px',
               height: '50px',
@@ -649,6 +727,35 @@ const VirtualInterviewer = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              onClick={createNewSession}
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: '600',
+                boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-1px)'
+                e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)'
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)'
+                e.target.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.3)'
+              }}
+            >
+              <Plus size={16} />
+              New Interview
+            </button>
+            
             <button
               onClick={() => setShowSettings(!showSettings)}
               style={{
