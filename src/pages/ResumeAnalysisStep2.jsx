@@ -10,7 +10,9 @@ import {
   Download,
   ArrowLeft,
   BarChart3,
-  ChevronDown
+  ChevronDown,
+  Menu,
+  X
 } from 'lucide-react'
 import axios from 'axios'
 import API_CONFIG from '../config/api'
@@ -26,6 +28,7 @@ const ResumeAnalysisStep2 = () => {
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
   const [user, setUser] = useState(null); // Add user state for dropdown
   const [dropdownVisible, setDropdownVisible] = useState(false); // Add dropdown visibility state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // Removed save status state
   const navigate = useNavigate();
   const location = useLocation()
@@ -644,6 +647,60 @@ const ResumeAnalysisStep2 = () => {
       minHeight: '100vh', 
       background: 'linear-gradient(135deg, #eff6ff, #e0e7ff, #f3e8ff)'
     }}>
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          .mobile-menu-button {
+            display: none;
+          }
+
+          .mobile-menu {
+            display: none;
+          }
+
+          @media screen and (max-width: 768px) {
+            .mobile-menu-button {
+              display: block !important;
+            }
+
+            .desktop-nav {
+              display: none !important;
+            }
+
+            .desktop-auth {
+              display: none !important;
+            }
+
+            .mobile-menu {
+              display: block !important;
+              position: fixed;
+              top: 64px;
+              left: 0;
+              right: 0;
+              background: white;
+              padding: 16px;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+              z-index: 40;
+              animation: slideDown 0.3s ease-out;
+            }
+
+            .analysis-grid {
+              grid-template-columns: 1fr !important;
+              gap: 24px !important;
+            }
+          }
+        `}
+      </style>
+
       {/* Header */}
       <header style={{ 
         background: 'white', 
@@ -685,19 +742,262 @@ const ResumeAnalysisStep2 = () => {
               <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>
             
-            <nav style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '32px',
-              userSelect: 'none' // Disable text selection
-            }}>
+            {/* Mobile Menu Button */}
+            <button
+              className="mobile-menu-button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              style={{
+                display: 'none',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px'
+              }}
+            >
+              {isMobileMenuOpen ? <X size={24} color="#374151" /> : <Menu size={24} color="#374151" />}
+            </button>
+
+            {/* Desktop Navigation */}
+            <nav 
+              className="desktop-nav"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '32px',
+                userSelect: 'none' // Disable text selection
+              }}
+            >
               <a href="/" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Home</a>
               <a href="/mock-interview" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Mock Interview</a>
               <a href="/resume-analysis/step1" style={{ color: '#3b82f6', fontWeight: '500', textDecoration: 'none' }}>Resume Analysis</a>
               <a href="/improve-resume/step1" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Improve Resume</a>
             </nav>
 
-            <div style={{ 
+            {/* Mobile Navigation */}
+            {isMobileMenuOpen && (
+              <div 
+                className="mobile-menu"
+                style={{
+                  position: 'fixed',
+                  top: '64px',
+                  left: 0,
+                  right: 0,
+                  background: 'white',
+                  padding: '16px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  zIndex: 40,
+                  animation: 'slideDown 0.3s ease-out'
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '24px',
+                  padding: '16px 0'
+                }}>
+                  <a 
+                    href="/" 
+                    style={{ 
+                      color: '#374151', 
+                      fontWeight: '500', 
+                      textDecoration: 'none',
+                      padding: '12px 20px',
+                      borderRadius: '12px',
+                      fontSize: '18px',
+                      transition: 'all 0.2s ease',
+                      backgroundColor: '#f8fafc'
+                    }}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Home
+                  </a>
+
+                  {/* Features Dropdown */}
+                  <div>
+                    <a 
+                      href="/mock-interview" 
+                      style={{ 
+                        color: '#374151', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Mock Interview
+                    </a>
+                    <a 
+                      href="/resume-analysis/step1" 
+                      style={{ 
+                        color: '#3b82f6', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        backgroundColor: '#f0f9ff'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Resume Analysis
+                    </a>
+                    <a 
+                      href="/improve-resume/step1" 
+                      style={{ 
+                        color: '#374151', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Improve Resume
+                    </a>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{
+                    height: '1px',
+                    background: '#e5e7eb',
+                    margin: '16px 0'
+                  }} />
+
+                  {/* User Section */}
+                  {user ? (
+                    <div style={{
+                      padding: '16px 20px',
+                      background: '#f8fafc',
+                      borderRadius: '12px',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        color: '#374151',
+                        fontWeight: '500',
+                        fontSize: '16px',
+                        marginBottom: '8px'
+                      }}>
+                        Welcome, {user.full_name || 'User'}
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}>
+                        <button
+                          onClick={() => {
+                            navigate('/dashboard');
+                            setIsMobileMenuOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: '#374151',
+                            background: 'none',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            width: '100%',
+                            textAlign: 'left'
+                          }}
+                        >
+                          Dashboard
+                        </button>
+                        <button
+                          onClick={() => {
+                            localStorage.clear();
+                            setUser(null);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: '#ef4444',
+                            background: 'none',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            width: '100%',
+                            textAlign: 'left'
+                          }}
+                        >
+                          Log Out
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px',
+                      padding: '16px 20px'
+                    }}>
+                      <button
+                        onClick={() => {
+                          navigate('/signin', { state: { from: '/resume-analysis/step2' } });
+                          setIsMobileMenuOpen(false);
+                        }}
+                        style={{
+                          color: '#374151',
+                          fontWeight: '500',
+                          background: 'white',
+                          border: '1px solid #e5e7eb',
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          fontSize: '16px',
+                          cursor: 'pointer',
+                          width: '100%'
+                        }}
+                      >
+                        Sign In
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigate('/signup');
+                          setIsMobileMenuOpen(false);
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          fontWeight: '600',
+                          fontSize: '16px',
+                          cursor: 'pointer',
+                          width: '100%'
+                        }}
+                      >
+                        Sign Up
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="desktop-auth" style={{ 
               display: 'flex', 
               alignItems: 'center', 
               gap: '16px',
@@ -874,7 +1174,7 @@ const ResumeAnalysisStep2 = () => {
           </p>
         </div>
 
-        <div style={{ 
+        <div className="analysis-grid" style={{ 
           display: 'grid',
           gridTemplateColumns: '1fr 2fr',
           gap: '32px',
