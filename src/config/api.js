@@ -51,12 +51,12 @@ const API_CONFIG = {
     SUBMITJD: '/db/submit-jd/',
     DOWNLOADRESUME: '/db/download-resume/',
     USERFILES: '/db/user-files/',
-    VIEWRESUME: '/db/view-resume/',
     SAVEANALYSISRESULT: '/db/save-analysis-result/',
     SAVEIMPROVEMENTRESULTS: '/db/save-improvement-results/',
     GETHISTORY: '/db/get-history/', 
     DOWNLOADHISTORYFILE: '/db/download-history-file/',
     VERIFY_EMAIL: '/db/verify-email',
+    STREAM_RESUME: '/db/stream-resume/',
     RESEND_VERIFICATION: '/db/resend-verification',
   }
 }

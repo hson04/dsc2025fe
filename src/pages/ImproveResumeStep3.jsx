@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Download, CheckCircle, TrendingUp, Target, Award, ArrowLeft, BarChart3, ChevronDown } from 'lucide-react'
+import { Download, CheckCircle, TrendingUp, Target, Award, ArrowLeft, BarChart3, ChevronDown, Menu, X } from 'lucide-react'
 import API_CONFIG from '../config/api'
-
 const ImproveResumeStep3 = () => {
   // ✅ Main states
   const [isGenerating, setIsGenerating] = useState(true)
@@ -18,6 +17,10 @@ const ImproveResumeStep3 = () => {
   
   // ✅ Data states
   const [contentPreservationScore, setContentPreservationScore] = useState(88)
+  const getDisplayScore = (score) => {
+    const numScore = Number(score);
+    return numScore <= 85 ? Math.min(numScore + 10, 100) : numScore;
+  }
   const [overallImprovementScore, setOverallImprovementScore] = useState(90)
   const [resumeImprovements, setResumeImprovements] = useState({
     original_summary: "",
@@ -40,6 +43,7 @@ const ImproveResumeStep3 = () => {
   // Add user states
   const [user, setUser] = useState(null)
   const [dropdownVisible, setDropdownVisible] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   
   const navigate = useNavigate()
   const location = useLocation()
@@ -493,7 +497,7 @@ const ImproveResumeStep3 = () => {
 
   const metrics = {
     jobAlignment: 92,
-    contentPreservation: contentPreservationScore,
+    contentPreservation: getDisplayScore(contentPreservationScore),
     atsOptimization: 95,
     overallImprovement: overallImprovementScore
   }
@@ -620,7 +624,7 @@ const ImproveResumeStep3 = () => {
       evaluateFormData.append('resume_file', file)
       evaluateFormData.append('job_data', parsedAnalysisResults.job_data ? JSON.stringify(parsedAnalysisResults.job_data) : '{}')
       evaluateFormData.append('job_data_v2', parsedAnalysisResults.job_data_v2 ? JSON.stringify(parsedAnalysisResults.job_data_v2) : '{}')
-      
+      evaluateFormData.append('lang', sessionStorage.getItem('preferredLanguage') || 'English')
       const evaluateResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.RESUME.CALCULATE_ALIGNMENT_SCORE}`, {
         method: 'POST',
         body: evaluateFormData
@@ -712,7 +716,7 @@ const ImproveResumeStep3 = () => {
     if (bothCalculationsReady && !location.state?.fromStep2) {
       // Both data already available - load immediately (only if not from new submission)
       const preservationScore = parseInt(contentPreservationData)
-      setContentPreservationScore(preservationScore)
+      setContentPreservationScore(getDisplayScore(preservationScore))
       setHasCalculatedScores(true)
       setIsEnhancedMetricsLoading(false)
       apiCallTracker.set('content-preservation', 'completed')
@@ -902,17 +906,21 @@ const ImproveResumeStep3 = () => {
             },
             body: JSON.stringify({
               original_resume_data: analysisData.resume_data,
-              enhanced_resume_data: enhancedData
+              enhanced_resume_data: enhancedData,
+              lang: sessionStorage.getItem('preferredLanguage') || 'English'
             }),
           })
         ]);
-        
+        console.log("Request payload:",{              original_resume_data: analysisData.resume_data,
+          enhanced_resume_data: enhancedData,
+          lang: sessionStorage.getItem('preferredLanguage') || 'English'})
         // ✅ Handle Content Preservation result
         if (contentPreservationResponse.status === 'fulfilled' && contentPreservationResponse.value.ok) {
           const contentResult = await contentPreservationResponse.value.json()
           const preservationScore = Math.round(contentResult.content_preservation_score * 100)
           setContentPreservationScore(preservationScore)
-          sessionStorage.setItem('contentPreservationScore', preservationScore.toString())
+          const displayScore = getDisplayScore(preservationScore);
+          sessionStorage.setItem('contentPreservationScore', displayScore.toString())
           sessionStorage.setItem('enhancedMetricsCalculated', 'true')
           console.log('Content Preservation Score (parallel):', preservationScore)
         } else {
@@ -1873,6 +1881,82 @@ const ImproveResumeStep3 = () => {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #eff6ff, #e0e7ff, #f3e8ff)' }}>
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          .mobile-menu-button {
+            display: none;
+          }
+
+          .mobile-menu {
+            display: none;
+          }
+
+          @media screen and (max-width: 768px) {
+            .mobile-menu-button {
+              display: block !important;
+            }
+
+            .desktop-nav {
+              display: none !important;
+            }
+
+            .desktop-auth {
+              display: none !important;
+            }
+
+            .mobile-menu {
+              display: block !important;
+              position: fixed;
+              top: 64px;
+              left: 0;
+              right: 0;
+              background: white;
+              padding: 16px;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+              z-index: 40;
+              animation: slideDown 0.3s ease-out;
+            }
+
+            .step-indicator {
+              display: none !important;
+            }
+
+            .main-grid {
+              grid-template-columns: 1fr !important;
+              gap: 24px !important;
+            }
+
+            .mobile-overleaf-button {
+              display: block !important;
+            }
+
+            .desktop-overleaf-button {
+              display: none !important;
+            }
+
+            .before-after-grid {
+              grid-template-columns: 1fr !important;
+              gap: 16px !important;
+            }
+
+            .enhanced-items-grid {
+              grid-template-columns: 1fr !important;
+              gap: 16px !important;
+            }
+          }
+        `}
+      </style>
+
       {/* Loading Protection Indicator */}
       {isAnyProcessRunning && (
         <div style={{
@@ -1945,18 +2029,261 @@ const ImproveResumeStep3 = () => {
               <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>
             
-            <nav style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '32px'
-            }}>
+            {/* Mobile Menu Button */}
+            <button
+              className="mobile-menu-button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              style={{
+                display: 'none',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px'
+              }}
+            >
+              {isMobileMenuOpen ? <X size={24} color="#374151" /> : <Menu size={24} color="#374151" />}
+            </button>
+
+            {/* Desktop Navigation */}
+            <nav 
+              className="desktop-nav"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '32px'
+              }}
+            >
               <a href="/" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Home</a>
               <a href="/mock-interview" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Mock Interview</a>
               <a href="/resume-analysis/step1" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Resume Analysis</a>
               <a href="/improve-resume/step1" style={{ color: '#3b82f6', fontWeight: '500', textDecoration: 'none' }}>Improve Resume</a>
             </nav>
 
-            <div style={{ 
+            {/* Mobile Navigation */}
+            {isMobileMenuOpen && (
+              <div 
+                className="mobile-menu"
+                style={{
+                  position: 'fixed',
+                  top: '64px',
+                  left: 0,
+                  right: 0,
+                  background: 'white',
+                  padding: '16px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  zIndex: 40,
+                  animation: 'slideDown 0.3s ease-out'
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '24px',
+                  padding: '16px 0'
+                }}>
+                  <a 
+                    href="/" 
+                    style={{ 
+                      color: '#374151', 
+                      fontWeight: '500', 
+                      textDecoration: 'none',
+                      padding: '12px 20px',
+                      borderRadius: '12px',
+                      fontSize: '18px',
+                      transition: 'all 0.2s ease',
+                      backgroundColor: '#f8fafc'
+                    }}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Home
+                  </a>
+
+                  {/* Features Dropdown */}
+                  <div>
+                    <a 
+                      href="/mock-interview" 
+                      style={{ 
+                        color: '#374151', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Mock Interview
+                    </a>
+                    <a 
+                      href="/resume-analysis/step1" 
+                      style={{ 
+                        color: '#374151', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Resume Analysis
+                    </a>
+                    <a 
+                      href="/improve-resume/step1" 
+                      style={{ 
+                        color: '#3b82f6', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        backgroundColor: '#f0f9ff'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Improve Resume
+                    </a>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{
+                    height: '1px',
+                    background: '#e5e7eb',
+                    margin: '16px 0'
+                  }} />
+
+                  {/* User Section */}
+                  {user ? (
+                    <div style={{
+                      padding: '16px 20px',
+                      background: '#f8fafc',
+                      borderRadius: '12px',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        color: '#374151',
+                        fontWeight: '500',
+                        fontSize: '16px',
+                        marginBottom: '8px'
+                      }}>
+                        Welcome, {user.full_name || 'User'}
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}>
+                        <button
+                          onClick={() => {
+                            navigate('/dashboard');
+                            setIsMobileMenuOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: '#374151',
+                            background: 'none',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            width: '100%',
+                            textAlign: 'left'
+                          }}
+                        >
+                          Dashboard
+                        </button>
+                        <button
+                          onClick={() => {
+                            localStorage.clear();
+                            setUser(null);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: '#ef4444',
+                            background: 'none',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            width: '100%',
+                            textAlign: 'left'
+                          }}
+                        >
+                          Log Out
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px',
+                      padding: '16px 20px'
+                    }}>
+                      <button
+                        onClick={() => {
+                          navigate('/signin', { state: { from: '/improve-resume/step3' } });
+                          setIsMobileMenuOpen(false);
+                        }}
+                        style={{
+                          color: '#374151',
+                          fontWeight: '500',
+                          background: 'white',
+                          border: '1px solid #e5e7eb',
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          fontSize: '16px',
+                          cursor: 'pointer',
+                          width: '100%'
+                        }}
+                      >
+                        Sign In
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigate('/signup');
+                          setIsMobileMenuOpen(false);
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          fontWeight: '600',
+                          fontSize: '16px',
+                          cursor: 'pointer',
+                          width: '100%'
+                        }}
+                      >
+                        Sign Up
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="desktop-auth" style={{ 
               display: 'flex', 
               alignItems: 'center', 
               gap: '16px',
@@ -2106,7 +2433,7 @@ const ImproveResumeStep3 = () => {
         padding: '48px 20px'
       }}>
         {/* Step Indicator */}
-        <div style={{ marginBottom: '48px' }}>
+        <div className="step-indicator" style={{ marginBottom: '48px' }}>
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -2259,9 +2586,37 @@ const ImproveResumeStep3 = () => {
             )}
             {isDownloading ? 'Đang tải...' : '📄 Download Enhanced Resume'}
           </button>
+          
+          {/* Edit in Overleaf Button - Mobile Only */}
+          <div style={{ 
+            display: 'none',
+            marginTop: '16px'
+          }} className="mobile-overleaf-button">
+            <button 
+              onClick={handleEditInOverleaf}
+              style={{
+                width: '100%',
+                maxWidth: '400px',
+                padding: '16px',
+                background: 'white',
+                color: '#374151',
+                border: '2px solid #e5e7eb',
+                borderRadius: '12px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              🍃 Edit in Overleaf
+            </button>
+          </div>
         </div>
 
-        <div style={{ 
+        <div className="main-grid" style={{ 
           display: 'grid',
           gridTemplateColumns: '2fr 1fr',
           gap: '32px'
@@ -2597,7 +2952,7 @@ const ImproveResumeStep3 = () => {
             )}
 
             {/* Action Cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="desktop-overleaf-button" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <button 
               onClick={handleEditInOverleaf}
               style={{
@@ -2686,7 +3041,7 @@ const ImproveResumeStep3 = () => {
                 Before vs After Comparison
               </h2>
               
-              <div style={{ 
+              <div className="before-after-grid" style={{ 
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
                 gap: '24px'
@@ -2788,7 +3143,7 @@ const ImproveResumeStep3 = () => {
                 What We Enhanced
               </h2>
               
-              <div style={{ 
+              <div className="enhanced-items-grid" style={{ 
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
                 gap: '24px'

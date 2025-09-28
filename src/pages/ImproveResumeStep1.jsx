@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Upload, FileText, Briefcase, ArrowRight, CheckCircle, ChevronDown } from 'lucide-react'
+import { Upload, FileText, Briefcase, ArrowRight, CheckCircle, ChevronDown, Menu, X } from 'lucide-react'
 import axios from 'axios'
 import API_CONFIG from '../config/api'
 const ImproveResumeStep1 = () => {
@@ -14,6 +14,9 @@ const ImproveResumeStep1 = () => {
   const [dropdownVisible, setDropdownVisible] = useState(false) // Add dropdown visibility state
   const [userFiles, setUserFiles] = useState({ resume_id: null, jd_text: null })
   const [isLoadingFiles, setIsLoadingFiles] = useState(false)
+  const [selectedLanguage, setSelectedLanguage] = useState('English')
+  const [dropdownLanguageVisible, setDropdownLanguageVisible] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -39,6 +42,14 @@ const ImproveResumeStep1 = () => {
     setResumeFile(null);
     setError(null);
     setIsSubmitting(false);
+  }, []);
+
+  useEffect(() => {
+    // Load preferred language from sessionStorage
+    const savedLanguage = sessionStorage.getItem('preferredLanguage');
+    if (savedLanguage) {
+      setSelectedLanguage(savedLanguage);
+    }
   }, []);
 
   useEffect(() => {
@@ -273,6 +284,7 @@ const ImproveResumeStep1 = () => {
       const formData = new FormData();
       formData.append('job_description', jobDescription.trim());
       formData.append('resume_file', resumeFile);
+      formData.append('lang', selectedLanguage);
 
       // ✅ Start progress simulation
       const progressInterval = setInterval(() => {
@@ -307,11 +319,15 @@ const ImproveResumeStep1 = () => {
 
     } catch (error) {
       let errorMessage = 'Failed to analyze resume. Please try again.';
-      if (error.response?.status === 413) {
+      console.log(error.response.data.detail)
+      if (error.response?.data?.detail?.includes("413")) {
         errorMessage = 'File too large. Please use a smaller file.';
-      } else if (error.response?.status === 400) {
-        errorMessage = 'Invalid file format or corrupted file. Please upload a valid resume.';
-      } else if (error.response?.status >= 500) {
+      } else if (error.response?.data?.detail?.includes("400") && error.response?.data?.detail?.includes("Not an IT job description")) {
+        errorMessage = 'Invalid job description content. Please upload a valid IT job description.';
+      }
+      else if (error.response?.data?.detail?.includes("400") && error.response?.data?.detail?.includes("Resume is incomplete or missing essential information")) {
+        errorMessage = 'Resume is incomplete or missing essential information. Please upload a valid resume.';
+      } else if (error.response?.data?.detail?.includes("500")) {
         errorMessage = 'Server error. Please try again later.';
       } else if (error.response?.data?.detail) {
         errorMessage = error.response.data.detail;
@@ -541,12 +557,126 @@ const ImproveResumeStep1 = () => {
             }
           `}
         </style>
+        <style>
+          {`
+            @keyframes fadeIn {
+              from { opacity: 0; transform: translateY(-10px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+
+            @keyframes slideDown {
+              from { opacity: 0; transform: translateY(-20px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+
+            .mobile-menu-button {
+              display: none;
+            }
+
+            .mobile-menu {
+              display: none;
+            }
+
+            @media screen and (max-width: 768px) {
+              .mobile-menu-button {
+                display: block !important;
+              }
+
+              .desktop-nav {
+                display: none !important;
+              }
+
+              .desktop-auth {
+                display: none !important;
+              }
+
+              .mobile-menu {
+                display: block !important;
+                position: fixed;
+                top: 64px;
+                left: 0;
+                right: 0;
+                background: white;
+                padding: 16px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                z-index: 40;
+                animation: slideDown 0.3s ease-out;
+              }
+            }
+          `}
+        </style>
       </div>
     );
   }
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #eff6ff, #e0e7ff, #f3e8ff)' }}>
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          .mobile-menu-button {
+            display: none;
+          }
+
+          .mobile-menu {
+            display: none;
+          }
+
+          @media screen and (max-width: 768px) {
+            .mobile-menu-button {
+              display: block !important;
+            }
+
+            .desktop-nav {
+              display: none !important;
+            }
+
+            .desktop-auth {
+              display: none !important;
+            }
+
+            .mobile-menu {
+              display: block !important;
+              position: fixed;
+              top: 64px;
+              left: 0;
+              right: 0;
+              background: white;
+              padding: 16px;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+              z-index: 40;
+              animation: slideDown 0.3s ease-out;
+            }
+
+            .step-indicator {
+              display: none !important;
+            }
+
+            .upload-section {
+              text-align: center !important;
+            }
+
+            .upload-section .choose-file-button {
+              margin: 0 auto !important;
+            }
+
+            .upload-section .choose-file-button span {
+              padding: 16px 32px !important;
+              font-size: 16px !important;
+            }
+          }
+        `}
+      </style>
+
       {/* Header */}
       <header style={{ 
         background: 'white', 
@@ -589,18 +719,261 @@ const ImproveResumeStep1 = () => {
               <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>
             
-            <nav style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '32px'
-            }}>
+            {/* Mobile Menu Button */}
+            <button
+              className="mobile-menu-button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              style={{
+                display: 'none',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px'
+              }}
+            >
+              {isMobileMenuOpen ? <X size={24} color="#374151" /> : <Menu size={24} color="#374151" />}
+            </button>
+
+            {/* Desktop Navigation */}
+            <nav 
+              className="desktop-nav"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '32px'
+              }}
+            >
               <a href="/" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Home</a>
               <a href="/mock-interview" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Mock Interview</a>
               <a href="/resume-analysis/step1" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Resume Analysis</a>
               <a href="/improve-resume/step1" style={{ color: '#3b82f6', fontWeight: '500', textDecoration: 'none' }}>Improve Resume</a>
             </nav>
 
-            <div style={{ 
+            {/* Mobile Navigation */}
+            {isMobileMenuOpen && (
+              <div 
+                className="mobile-menu"
+                style={{
+                  position: 'fixed',
+                  top: '64px',
+                  left: 0,
+                  right: 0,
+                  background: 'white',
+                  padding: '16px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  zIndex: 40,
+                  animation: 'slideDown 0.3s ease-out'
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '24px',
+                  padding: '16px 0'
+                }}>
+                  <a 
+                    href="/" 
+                    style={{ 
+                      color: '#374151', 
+                      fontWeight: '500', 
+                      textDecoration: 'none',
+                      padding: '12px 20px',
+                      borderRadius: '12px',
+                      fontSize: '18px',
+                      transition: 'all 0.2s ease',
+                      backgroundColor: '#f8fafc'
+                    }}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Home
+                  </a>
+
+                  {/* Features Dropdown */}
+                  <div>
+                    <a 
+                      href="/mock-interview" 
+                      style={{ 
+                        color: '#374151', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Mock Interview
+                    </a>
+                    <a 
+                      href="/resume-analysis/step1" 
+                      style={{ 
+                        color: '#374151', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Resume Analysis
+                    </a>
+                    <a 
+                      href="/improve-resume/step1" 
+                      style={{ 
+                        color: '#3b82f6', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        backgroundColor: '#f0f9ff'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Improve Resume
+                    </a>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{
+                    height: '1px',
+                    background: '#e5e7eb',
+                    margin: '16px 0'
+                  }} />
+
+                  {/* User Section */}
+                  {user ? (
+                    <div style={{
+                      padding: '16px 20px',
+                      background: '#f8fafc',
+                      borderRadius: '12px',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        color: '#374151',
+                        fontWeight: '500',
+                        fontSize: '16px',
+                        marginBottom: '8px'
+                      }}>
+                        Welcome, {user.full_name || 'User'}
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}>
+                        <button
+                          onClick={() => {
+                            navigate('/dashboard');
+                            setIsMobileMenuOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: '#374151',
+                            background: 'none',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            width: '100%',
+                            textAlign: 'left'
+                          }}
+                        >
+                          Dashboard
+                        </button>
+                        <button
+                          onClick={() => {
+                            localStorage.clear();
+                            setUser(null);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: '#ef4444',
+                            background: 'none',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            width: '100%',
+                            textAlign: 'left'
+                          }}
+                        >
+                          Log Out
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px',
+                      padding: '16px 20px'
+                    }}>
+                      <button
+                        onClick={() => {
+                          navigate('/signin', { state: { from: '/improve-resume/step1' } });
+                          setIsMobileMenuOpen(false);
+                        }}
+                        style={{
+                          color: '#374151',
+                          fontWeight: '500',
+                          background: 'white',
+                          border: '1px solid #e5e7eb',
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          fontSize: '16px',
+                          cursor: 'pointer',
+                          width: '100%'
+                        }}
+                      >
+                        Sign In
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigate('/signup');
+                          setIsMobileMenuOpen(false);
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          fontWeight: '600',
+                          fontSize: '16px',
+                          cursor: 'pointer',
+                          width: '100%'
+                        }}
+                      >
+                        Sign Up
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="desktop-auth" style={{ 
               display: 'flex', 
               alignItems: 'center', 
               gap: '16px',
@@ -750,7 +1123,7 @@ const ImproveResumeStep1 = () => {
         padding: '48px 20px'
       }}>
         {/* Step Indicator */}
-        <div style={{ marginBottom: '48px' }}>
+        <div className="step-indicator" style={{ marginBottom: '48px' }}>
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -954,7 +1327,7 @@ We are looking for a Senior Software Engineer with 5+ years of experience in Rea
             </div>
 
             {/* Resume Upload Section */}
-            <div>
+            <div className="upload-section">
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -1073,7 +1446,7 @@ We are looking for a Senior Software Engineer with 5+ years of experience in Rea
                       }}>
                         Drag and drop your resume here, or click to browse
                       </p>
-                      <label style={{ cursor: 'pointer' }}>
+                      <label className="choose-file-button" style={{ cursor: 'pointer' }}>
                         <span style={{
                           background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
                           color: 'white',
@@ -1125,6 +1498,126 @@ We are looking for a Senior Software Engineer with 5+ years of experience in Rea
                         </button>
                       )}
                     </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Language Selection */}
+            <div>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                marginBottom: '16px'
+              }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  background: '#f0fdf4',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                  </svg>
+                </div>
+                <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>
+                  Select Language
+                </h2>
+              </div>
+
+              <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
+                <button
+                  onClick={() => setDropdownLanguageVisible(!dropdownLanguageVisible)}
+                  onBlur={() => setTimeout(() => setDropdownLanguageVisible(false), 200)}
+                  style={{
+                    width: '100%',
+                    padding: '16px 32px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '12px',
+                    fontSize: '18px',
+                    color: '#374151',
+                    background: 'white',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    transition: 'all 0.2s ease',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => e.style.backgroundColor = '#f9fafb'}
+                  onMouseLeave={(e) => e.style.backgroundColor = 'white'}
+                >
+                  <span>{selectedLanguage === 'English' ? 'English' : 'Tiếng Việt'}</span>
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="#374151" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    style={{
+                      transform: dropdownLanguageVisible ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s ease'
+                    }}
+                  >
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                </button>
+
+                {dropdownLanguageVisible && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      marginTop: '8px',
+                      background: 'white',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                      overflow: 'hidden',
+                      zIndex: 50,
+                      animation: 'fadeIn 0.2s ease-in-out'
+                    }}
+                  >
+                    {['English', 'Vietnamese'].map((lang) => (
+                      <button
+                        key={lang}
+                        onClick={() => {
+                          setSelectedLanguage(lang);
+                          sessionStorage.setItem('preferredLanguage', lang);
+                          setDropdownLanguageVisible(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '12px 24px',
+                          textAlign: 'left',
+                          background: selectedLanguage === lang ? '#f3f4f6' : 'white',
+                          border: 'none',
+                          color: '#374151',
+                          cursor: 'pointer',
+                          fontSize: '16px',
+                          fontWeight: '500',
+                          display: 'block',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.style.backgroundColor = selectedLanguage === lang ? '#f3f4f6' : 'white'}
+                      >
+                        {lang === 'English' ? 'English' : 'Tiếng Việt'}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>

@@ -1,11 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { FileText, Mic, TrendingUp, Upload, BarChart3, Wand2, ArrowRight, Award, Zap, ChevronDown } from 'lucide-react'
+import { FileText, Mic, TrendingUp, Upload, BarChart3, Wand2, ArrowRight, Award, Zap, ChevronDown, Menu, X } from 'lucide-react'
 const storedUser = localStorage.getItem('user');
 const CVisionHome = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [featuresDropdownOpen, setFeaturesDropdownOpen] = useState(false);
 
   // Check if user is logged in
   useEffect(() => {
@@ -25,7 +27,7 @@ const CVisionHome = () => {
         top: 0,
         zIndex: 50
       }}>
-        <div style={{ 
+        <div className="container" style={{ 
           maxWidth: '1200px', 
           margin: '0 auto', 
           padding: '0 20px'
@@ -59,12 +61,31 @@ const CVisionHome = () => {
               <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>
             
-            <nav style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '32px',
-              userSelect: 'none' // Disable text selection
-            }}>
+            {/* Mobile Menu Button */}
+            <button
+              className="mobile-menu-button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              style={{
+                display: 'none',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px'
+              }}
+            >
+              {isMobileMenuOpen ? <X size={24} color="#374151" /> : <Menu size={24} color="#374151" />}
+            </button>
+
+            {/* Desktop Navigation */}
+            <nav 
+              className="desktop-nav"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '32px',
+                userSelect: 'none'
+              }}
+            >
               <a href="/" style={{ color: '#3b82f6', fontWeight: '500', textDecoration: 'none' }}>Home</a>
               <a href="/mock-interview" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Mock Interview</a>
               <a href="/virtual-interviewer" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Virtual Interviewer</a>
@@ -72,7 +93,304 @@ const CVisionHome = () => {
               <a href="/improve-resume/step1" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Improve Resume</a>
             </nav>
 
-            <div style={{ 
+            {/* Mobile Navigation */}
+            {isMobileMenuOpen && (
+              <div 
+                className="mobile-menu"
+                style={{
+                  position: 'fixed',
+                  top: '64px',
+                  left: 0,
+                  right: 0,
+                  background: 'white',
+                  padding: '16px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  zIndex: 40,
+                  animation: 'slideDown 0.3s ease-out'
+                }}>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '24px',
+                  padding: '16px 0'
+                }}>
+                  <a 
+                    href="/" 
+                    style={{ 
+                      color: '#3b82f6', 
+                      fontWeight: '500', 
+                      textDecoration: 'none',
+                      padding: '12px 20px',
+                      borderRadius: '12px',
+                      fontSize: '18px',
+                      transition: 'all 0.2s ease',
+                      backgroundColor: '#f0f9ff'
+                    }}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Home
+                  </a>
+
+                  {/* Features Dropdown */}
+                  <div>
+                    <button
+                      onClick={() => setFeaturesDropdownOpen(!featuresDropdownOpen)}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        color: '#374151',
+                        fontWeight: '500',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        border: 'none',
+                        background: featuresDropdownOpen ? '#f1f5f9' : 'transparent',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <span>Features</span>
+                      <ChevronDown 
+                        size={20} 
+                        style={{
+                          transform: featuresDropdownOpen ? 'rotate(180deg)' : 'rotate(0)',
+                          transition: 'transform 0.2s ease'
+                        }}
+                      />
+                    </button>
+
+                    {featuresDropdownOpen && (
+                      <div style={{
+                        marginTop: '8px',
+                        paddingLeft: '20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '16px',
+                        animation: 'slideDown 0.2s ease-out'
+                      }}>
+                        <a 
+                          href="/mock-interview" 
+                          style={{ 
+                            color: '#374151', 
+                            fontWeight: '500', 
+                            textDecoration: 'none',
+                            padding: '12px 20px',
+                            borderRadius: '12px',
+                            fontSize: '16px',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px'
+                          }}
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            setFeaturesDropdownOpen(false);
+                          }}
+                        >
+                          <Mic size={20} />
+                          Mock Interview
+                        </a>
+                        <a 
+                          href="/virtual-interviewer" 
+                          style={{ 
+                            color: '#374151', 
+                            fontWeight: '500', 
+                            textDecoration: 'none',
+                            padding: '12px 20px',
+                            borderRadius: '12px',
+                            fontSize: '16px',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px'
+                          }}
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            setFeaturesDropdownOpen(false);
+                          }}
+                        >
+                          <Wand2 size={20} />
+                          Virtual Interviewer
+                        </a>
+                        <a 
+                          href="/resume-analysis/step1" 
+                          style={{ 
+                            color: '#374151', 
+                            fontWeight: '500', 
+                            textDecoration: 'none',
+                            padding: '12px 20px',
+                            borderRadius: '12px',
+                            fontSize: '16px',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px'
+                          }}
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            setFeaturesDropdownOpen(false);
+                          }}
+                        >
+                          <BarChart3 size={20} />
+                          Resume Analysis
+                        </a>
+                        <a 
+                          href="/improve-resume/step1" 
+                          style={{ 
+                            color: '#374151', 
+                            fontWeight: '500', 
+                            textDecoration: 'none',
+                            padding: '12px 20px',
+                            borderRadius: '12px',
+                            fontSize: '16px',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px'
+                          }}
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            setFeaturesDropdownOpen(false);
+                          }}
+                        >
+                          <FileText size={20} />
+                          Improve Resume
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{
+                    height: '1px',
+                    background: '#e5e7eb',
+                    margin: '16px 0'
+                  }} />
+
+                  {/* User Section */}
+                  {user ? (
+                    <div style={{
+                      padding: '16px 20px',
+                      background: '#f8fafc',
+                      borderRadius: '12px',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        color: '#374151',
+                        fontWeight: '500',
+                        fontSize: '16px',
+                        marginBottom: '8px'
+                      }}>
+                        Welcome, {user.full_name || 'User'}
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}>
+                        <button
+                          onClick={() => {
+                            navigate('/dashboard');
+                            setIsMobileMenuOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: '#374151',
+                            background: 'none',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            width: '100%',
+                            textAlign: 'left'
+                          }}
+                        >
+                          Dashboard
+                        </button>
+                        <button
+                          onClick={() => {
+                            localStorage.clear();
+                            setUser(null);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: '#ef4444',
+                            background: 'none',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            width: '100%',
+                            textAlign: 'left'
+                          }}
+                        >
+                          Log Out
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px',
+                      padding: '16px 20px'
+                    }}>
+                      <button
+                        onClick={() => {
+                          navigate('/signin', { state: { from: '/' } });
+                          setIsMobileMenuOpen(false);
+                        }}
+                        style={{
+                          color: '#374151',
+                          fontWeight: '500',
+                          background: 'white',
+                          border: '1px solid #e5e7eb',
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          fontSize: '16px',
+                          cursor: 'pointer',
+                          width: '100%'
+                        }}
+                      >
+                        Sign In
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigate('/signup');
+                          setIsMobileMenuOpen(false);
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          fontWeight: '600',
+                          fontSize: '16px',
+                          cursor: 'pointer',
+                          width: '100%'
+                        }}
+                      >
+                        Sign Up
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="desktop-auth" style={{ 
               display: 'flex', 
               alignItems: 'center', 
               gap: '16px',
@@ -224,7 +542,7 @@ const CVisionHome = () => {
         padding: '80px 20px',
         textAlign: 'center'
       }}>
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+        <div className="container" style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <h1 style={{ 
             fontSize: '64px', 
             fontWeight: 'bold', 
@@ -316,7 +634,7 @@ const CVisionHome = () => {
         padding: '64px 20px', 
         background: 'white'
       }}>
-        <div style={{ 
+        <div className="container" style={{ 
           maxWidth: '1200px', 
           margin: '0 auto',
           display: 'grid',
@@ -398,7 +716,7 @@ const CVisionHome = () => {
         padding: '80px 20px', 
         background: '#f8fafc'
       }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <div className="container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '64px' }}>
             <h2 style={{ 
               fontSize: '48px', 
@@ -420,8 +738,12 @@ const CVisionHome = () => {
 
           <div style={{ 
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-            gap: '48px'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '48px',
+            '@media (max-width: 410px)': {
+              gridTemplateColumns: '1fr',
+              gap: '24px'
+            }
           }}>
             {/* CV Enhancement */}
             <div className="card" style={{ 
@@ -631,7 +953,7 @@ const CVisionHome = () => {
         padding: '80px 20px', 
         background: 'white'
       }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <div className="container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '64px' }}>
             <h2 style={{ 
               fontSize: '48px', 
@@ -836,7 +1158,7 @@ const CVisionHome = () => {
         padding: '64px 20px',
         textAlign: 'center'
       }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <div className="container" style={{ maxWidth: '800px', margin: '0 auto' }}>
           <h2 style={{ 
             fontSize: '40px', 
             fontWeight: 'bold', 
@@ -899,7 +1221,7 @@ const CVisionHome = () => {
         color: 'white',
         padding: '48px 20px'
       }}>
-        <div style={{ 
+        <div className="container" style={{ 
           maxWidth: '1200px', 
           margin: '0 auto',
           display: 'grid',
@@ -968,6 +1290,82 @@ const CVisionHome = () => {
             to {
               opacity: 1;
               transform: translateY(0);
+            }
+          }
+          @keyframes slideDown {
+            from {
+              opacity: 0;
+              transform: translateY(-20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          /* Mobile Styles */
+          @media (max-width: 768px) {
+            .mobile-menu-button {
+              display: block !important;
+            }
+            .desktop-nav, .desktop-auth {
+              display: none !important;
+            }
+            .mobile-menu {
+              display: block;
+            }
+          }
+          @media (min-width: 769px) {
+            .mobile-menu-button {
+              display: none !important;
+            }
+            .mobile-menu {
+              display: none !important;
+            }
+          }
+          
+          /* Extra Small Devices */
+          @media (max-width: 410px) {
+            body {
+              overflow-x: hidden;
+            }
+            .mobile-menu {
+              padding: 8px !important;
+            }
+            .mobile-menu a,
+            .mobile-menu button {
+              padding: 10px 16px !important;
+              font-size: 16px !important;
+            }
+            .container {
+              padding: 0 10px !important;
+              width: 100% !important;
+              box-sizing: border-box !important;
+            }
+            section {
+              padding-left: 0 !important;
+              padding-right: 0 !important;
+            }
+            .card {
+              padding: 24px 16px !important;
+              margin: 0 !important;
+              border-radius: 12px !important;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+            }
+            h1 {
+              font-size: 40px !important;
+            }
+            h2 {
+              font-size: 32px !important;
+            }
+            h3 {
+              font-size: 20px !important;
+            }
+            p {
+              font-size: 16px !important;
+            }
+            button {
+              padding: 12px 20px !important;
             }
           }
         `}

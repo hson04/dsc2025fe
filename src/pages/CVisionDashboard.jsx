@@ -17,7 +17,9 @@ import {
   Edit,
   File,
   ChevronDown,
-  FileDown // Add download icon
+  FileDown, // Add download icon
+  Menu,
+  X
 } from 'lucide-react'
 const CVisionDashboard = () => {
   const navigate = useNavigate()
@@ -26,8 +28,10 @@ const CVisionDashboard = () => {
   const [error, setError] = useState(null)
   const [uploadStatus, setUploadStatus] = useState({ resume: false, jd: false })
   const [dropdownVisible, setDropdownVisible] = useState(false); // For user menu dropdown
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [resumeContent, setResumeContent] = useState(null);
   const [viewResume, setViewResume] = useState(false); // Track if "View Resume" is clicked
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
   const [jobDescription, setJobDescription] = useState(''); // State for job description text input
   const [editJD, setEditJD] = useState(false); // State to control JD edit/submit
   const [isLoading, setIsLoading] = useState({ resume: false, jd: false }); // Track loading states
@@ -38,7 +42,19 @@ const CVisionDashboard = () => {
     interview_stats: { total_interviews: 0, completed_interviews: 0, completion_rate: 0 }
   });
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
+
+  useEffect(() => {
+    // Detect mobile viewport for PDF rendering strategy
+    const mq = window.matchMedia('(max-width: 768px)');
+    const updateIsMobile = () => setIsMobile(mq.matches);
+    updateIsMobile();
+    mq.addEventListener ? mq.addEventListener('change', updateIsMobile) : mq.addListener(updateIsMobile);
+    return () => {
+      mq.removeEventListener ? mq.removeEventListener('change', updateIsMobile) : mq.removeListener(updateIsMobile);
+    };
+  }, []);
 
   useEffect(() => {
     // Lấy thông tin người dùng từ localStorage
@@ -79,8 +95,13 @@ const CVisionDashboard = () => {
         const data = await response.json();
         setUploadStatus({
           resume: !!data.resume_id,
-          jd: !!data.jd_text, // Change to jd_text
+          jd: !!data.jd_text,
         });
+        
+        // Nếu có jd_text, cập nhật state jobDescription
+        if (data.jd_text) {
+          setJobDescription(data.jd_text);
+        }
       } catch (err) {
         console.error("Error fetching user files:", err);
       }
@@ -151,15 +172,17 @@ const CVisionDashboard = () => {
 
   const fetchResume = async () => {
     if (viewResume) {
-      // If already viewing, toggle back to initial state
       setViewResume(false);
+      if (pdfBlobUrl) {
+        URL.revokeObjectURL(pdfBlobUrl);
+        setPdfBlobUrl(null);
+      }
       return;
     }
 
     const token = localStorage.getItem("access_token");
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.VIEWRESUME}${user.id}`, {
-        method: "GET",
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.USERDB.STREAM_RESUME}${user.id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -169,17 +192,18 @@ const CVisionDashboard = () => {
         throw new Error("Failed to fetch resume");
       }
 
-      const data = await response.json();
-      
-      // Nếu là file DOCX, tự động tải về
-      if (!data.is_pdf) {
+      // Kiểm tra content-type từ response
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/pdf')) {
+        // Nếu là PDF, tạo blob URL và hiển thị trong iframe
+        const pdfBlob = await response.blob();
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        setPdfBlobUrl(blobUrl);
+        setViewResume(true);
+      } else {
+        // Nếu không phải PDF (ví dụ: DOCX), tự động tải về
         handleFileDownload('resume');
-        return;
       }
-
-      // Nếu là PDF, hiển thị như bình thường
-      setResumeContent(data);
-      setViewResume(true);
     } catch (err) {
       alert(`Error fetching resume: ${err.message}`);
     }
@@ -477,6 +501,16 @@ const CVisionDashboard = () => {
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc, #e2e8f0)' }}>
       <style>
         {`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
           .hide-scrollbar {
             scrollbar-width: none !important;
             -ms-overflow-style: none !important;
@@ -487,6 +521,71 @@ const CVisionDashboard = () => {
             height: 0 !important;
             background: transparent !important;
             display: none !important;
+          }
+
+          .mobile-menu-button {
+            display: none;
+          }
+
+          .mobile-menu {
+            display: none;
+          }
+
+          @media screen and (max-width: 768px) {
+            .mobile-menu-button {
+              display: block !important;
+            }
+
+            .desktop-nav {
+              display: none !important;
+            }
+
+            .desktop-auth {
+              display: none !important;
+            }
+
+            .mobile-menu {
+              display: block !important;
+              position: fixed;
+              top: 64px;
+              left: 0;
+              right: 0;
+              background: white;
+              padding: 16px;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+              z-index: 40;
+              animation: slideDown 0.3s ease-out;
+            }
+
+            .file-upload-grid {
+              grid-template-columns: 1fr !important;
+              gap: 16px !important;
+            }
+
+            .file-upload-grid > div {
+              flex-direction: column !important;
+              gap: 16px !important;
+            }
+
+            .stats-grid {
+              grid-template-columns: 1fr !important;
+              gap: 16px !important;
+            }
+
+            .main-content-grid {
+              grid-template-columns: 1fr !important;
+              gap: 24px !important;
+            }
+
+            .quick-actions-grid {
+              grid-template-columns: 1fr !important;
+              gap: 16px !important;
+            }
+
+            .resume-viewer {
+              grid-column: 1 / span 1 !important;
+              width: 100% !important;
+            }
           }
         `}
       </style>
@@ -532,24 +631,266 @@ const CVisionDashboard = () => {
               <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>CVision</span>
             </div>
             
-            <nav style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '32px',
-              userSelect: 'none' // Disable text selection
-            }}>
+            {/* Mobile Menu Button */}
+            <button
+              className="mobile-menu-button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              style={{
+                display: 'none',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px'
+              }}
+            >
+              {isMobileMenuOpen ? <X size={24} color="#374151" /> : <Menu size={24} color="#374151" />}
+            </button>
+
+            <nav 
+              className="desktop-nav"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '32px',
+                userSelect: 'none' // Disable text selection
+              }}>
               <a href="/" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Home</a>
               <a href="/mock-interview" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Mock Interview</a>
               <a href="/resume-analysis/step1" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Resume Analysis</a>
               <a href="/improve-resume/step1" style={{ color: '#374151', fontWeight: '500', textDecoration: 'none' }}>Improve Resume</a>
             </nav>
 
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '16px',
-              position: 'relative' // Added for dropdown positioning
-            }}>
+            {/* Mobile Navigation */}
+            {isMobileMenuOpen && (
+              <div 
+                className="mobile-menu"
+                style={{
+                  position: 'fixed',
+                  top: '64px',
+                  left: 0,
+                  right: 0,
+                  background: 'white',
+                  padding: '16px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  zIndex: 40,
+                  animation: 'slideDown 0.3s ease-out'
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '24px',
+                  padding: '16px 0'
+                }}>
+                  <a 
+                    href="/" 
+                    style={{ 
+                      color: '#374151', 
+                      fontWeight: '500', 
+                      textDecoration: 'none',
+                      padding: '12px 20px',
+                      borderRadius: '12px',
+                      fontSize: '18px',
+                      transition: 'all 0.2s ease',
+                      backgroundColor: '#f8fafc'
+                    }}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Home
+                  </a>
+
+                  {/* Features Dropdown */}
+                  <div>
+                    <a 
+                      href="/mock-interview" 
+                      style={{ 
+                        color: '#374151', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Mock Interview
+                    </a>
+                    <a 
+                      href="/resume-analysis/step1" 
+                      style={{ 
+                        color: '#374151', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Resume Analysis
+                    </a>
+                    <a 
+                      href="/improve-resume/step1" 
+                      style={{ 
+                        color: '#374151', 
+                        fontWeight: '500', 
+                        textDecoration: 'none',
+                        padding: '12px 20px',
+                        borderRadius: '12px',
+                        fontSize: '18px',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Improve Resume
+                    </a>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{
+                    height: '1px',
+                    background: '#e5e7eb',
+                    margin: '16px 0'
+                  }} />
+
+                  {/* User Section */}
+                  {user ? (
+                    <div style={{
+                      padding: '16px 20px',
+                      background: '#f8fafc',
+                      borderRadius: '12px',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        color: '#374151',
+                        fontWeight: '500',
+                        fontSize: '16px',
+                        marginBottom: '8px'
+                      }}>
+                        Welcome, {user.full_name || 'User'}
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}>
+                        <button
+                          onClick={() => {
+                            navigate('/dashboard');
+                            setIsMobileMenuOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: '#374151',
+                            background: 'none',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            width: '100%',
+                            textAlign: 'left'
+                          }}
+                        >
+                          Dashboard
+                        </button>
+                        <button
+                          onClick={() => {
+                            localStorage.clear();
+                            setUser(null);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: '#ef4444',
+                            background: 'none',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            width: '100%',
+                            textAlign: 'left'
+                          }}
+                        >
+                          Log Out
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px',
+                      padding: '16px 20px'
+                    }}>
+                      <button
+                        onClick={() => {
+                          navigate('/signin', { state: { from: '/dashboard' } });
+                          setIsMobileMenuOpen(false);
+                        }}
+                        style={{
+                          color: '#374151',
+                          fontWeight: '500',
+                          background: 'white',
+                          border: '1px solid #e5e7eb',
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          fontSize: '16px',
+                          cursor: 'pointer',
+                          width: '100%'
+                        }}
+                      >
+                        Sign In
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigate('/signup');
+                          setIsMobileMenuOpen(false);
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          fontWeight: '600',
+                          fontSize: '16px',
+                          cursor: 'pointer',
+                          width: '100%'
+                        }}
+                      >
+                        Sign Up
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div 
+              className="desktop-auth"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '16px',
+                position: 'relative' // Added for dropdown positioning
+              }}>
               {user ? (
                 <>
                   <div 
@@ -713,7 +1054,7 @@ const CVisionDashboard = () => {
           </p>
 
           {/* File Upload Sections */}
-          <div style={{
+          <div className="file-upload-grid" style={{
             display: 'grid',
             gridTemplateColumns: viewResume ? '1fr 2fr' : 'repeat(auto-fit, minmax(300px, 1fr))',
             gap: '24px',
@@ -943,14 +1284,20 @@ const CVisionDashboard = () => {
                     </p>
                     {editJD && (
                       <textarea
-                        rows="4"
+                        rows="20"
                         style={{
                           width: '100%',
                           padding: '12px',
                           borderRadius: '8px',
                           border: '1px solid #e5e7eb',
-                          marginBottom: '16px'
+                          marginBottom: '16px',
+                          resize: 'vertical',
+                          minHeight: '200px',
+                          fontFamily: 'inherit',
+                          fontSize: '15px',
+                          lineHeight: '1.5'
                         }}
+                        placeholder="Enter job description here..."
                         value={jobDescription}
                         onChange={(e) => setJobDescription(e.target.value)}
                       />
@@ -1081,6 +1428,7 @@ const CVisionDashboard = () => {
             {/* Resume Viewer Section */}
             {viewResume && (
               <div
+                className="resume-viewer"
                 style={{
                   background: 'white',
                   padding: '24px',
@@ -1092,33 +1440,60 @@ const CVisionDashboard = () => {
                   opacity: viewResume ? 1 : 0, // Fade effect
                 }}
               >
-                <div
-                  style={{
-                    width: '100%',
-                    height: '500px',
-                    overflow: 'hidden',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                  }}
-                >
-                  <iframe
-                    src={`data:${resumeContent.content_type};base64,${resumeContent.file_content}#toolbar=0`}
+                {isMobile ? (
+                  <div
                     style={{
                       width: '100%',
-                      height: '100%',
-                      border: '0.5px solid #000',
-                      overflow: 'auto',
+                      height: '70vh',
+                      maxHeight: '700px',
+                      overflow: 'hidden',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
                     }}
-                    title="Resume Viewer"
-                  ></iframe>
-                </div>
+                  >
+                    {/* Some mobile browsers block iframe PDF. Use object with fallback. */}
+                    <object data={pdfBlobUrl} type="application/pdf" style={{ width: '100%', height: '100%' }}>
+                      <div style={{ padding: '16px', textAlign: 'center', color: '#374151' }}>
+                        PDF preview not supported on this device.
+                        <div style={{ marginTop: '12px' }}>
+                          <a href={pdfBlobUrl} target="_blank" rel="noopener noreferrer" style={{
+                            background: '#3b82f6', color: 'white', padding: '10px 16px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600
+                          }}>
+                            Open PDF in new tab
+                          </a>
+                        </div>
+                      </div>
+                    </object>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '500px',
+                      overflow: 'hidden',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    <iframe
+                      src={pdfBlobUrl}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        border: '0.5px solid #000',
+                        overflow: 'auto',
+                      }}
+                      title="Resume Viewer"
+                    ></iframe>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div style={{ 
+        <div className="stats-grid" style={{ 
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
           gap: '24px',
@@ -1179,7 +1554,7 @@ const CVisionDashboard = () => {
           ))}
         </div>
 
-        <div style={{ 
+        <div className="main-content-grid" style={{ 
           display: 'grid',
           gridTemplateColumns: '2fr 1fr',
           gap: '32px'
@@ -1203,7 +1578,7 @@ const CVisionDashboard = () => {
                 🚀 Quick Actions
               </h2>
               
-              <div style={{ 
+              <div className="quick-actions-grid" style={{ 
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                 gap: '16px'
